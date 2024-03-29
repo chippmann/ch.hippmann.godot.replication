@@ -1,5 +1,7 @@
 package ch.hippmann.godot.replication
 
+import ch.hippmann.godot.replication.serializer.deserialize
+import ch.hippmann.godot.replication.serializer.serialize
 import ch.hippmann.godot.utilities.logging.debug
 import godot.Node
 import godot.PackedScene

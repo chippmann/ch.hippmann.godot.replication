@@ -43,7 +43,7 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
         notifyReady { peerId ->
             ifAuthority {
                 debug { "RemoteListener[${this.name}]: send ready to peers as authority" }
-                rpc(thisNodeAsWithRemoteListeners::peerOnAuthorityReadyForWithRemoteListeners)
+                rpcId(peerId, thisNodeAsWithRemoteListeners::peerOnAuthorityReadyForWithRemoteListeners)
             }
             ifPeer {
                 if (peerId == 1L) {
@@ -53,14 +53,14 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
             }
         }
 
-        ifAuthority {
-            debug { "RemoteListener[${this.name}]: send ready to peers as authority" }
-            rpc(thisNodeAsWithRemoteListeners::peerOnAuthorityReadyForWithRemoteListeners)
-        }
-        ifPeer {
-            debug { "RemoteListener[${this.name}]: request subscription with authority as peer" }
-            rpc(thisNodeAsWithRemoteListeners::authorityOnPeerSubscribeForWithRemoteListeners)
-        }
+//        ifAuthority {
+//            debug { "RemoteListener[${this.name}]: send ready to peers as authority" }
+//            rpc(thisNodeAsWithRemoteListeners::peerOnAuthorityReadyForWithRemoteListeners)
+//        }
+//        ifPeer {
+//            debug { "RemoteListener[${this.name}]: request subscription with authority as peer" }
+//            rpc(thisNodeAsWithRemoteListeners::authorityOnPeerSubscribeForWithRemoteListeners)
+//        }
     }
 
     override fun notificationOnExitingTreeForWithRemoteListeners() {

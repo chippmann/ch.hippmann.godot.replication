@@ -3,6 +3,7 @@ package ch.hippmann.godot.replication
 import godot.Node
 import godot.annotation.RegisterFunction
 import godot.annotation.Rpc
+import godot.annotation.RpcMode
 
 interface WithRemoteListeners {
     val listeningPeers: List<Long>
@@ -25,15 +26,15 @@ interface WithRemoteListeners {
     @RegisterFunction
     fun notificationOnPeerDisconnectedForWithRemoteListeners(peerId: Long)
 
-    @Rpc
+    @Rpc(rpcMode = RpcMode.ANY)
     @RegisterFunction
     fun authorityOnPeerSubscribeForWithRemoteListeners()
 
-    @Rpc
+    @Rpc(rpcMode = RpcMode.ANY)
     @RegisterFunction
     fun authorityOnPeerUnsubscribeForWithRemoteListeners()
 
-    @Rpc
+    @Rpc(rpcMode = RpcMode.ANY)
     @RegisterFunction
     fun peerOnAuthorityReadyForWithRemoteListeners()
 }

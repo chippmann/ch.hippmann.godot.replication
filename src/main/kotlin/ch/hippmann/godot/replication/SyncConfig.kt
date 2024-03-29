@@ -1,39 +1,11 @@
 package ch.hippmann.godot.replication
 
-import ch.hippmann.godot.replication.serializers.BasisSerializer
-import ch.hippmann.godot.replication.serializers.Transform3DSerializer
-import ch.hippmann.godot.replication.serializers.Vector3Serializer
+import ch.hippmann.godot.replication.serializer.deserialize
+import ch.hippmann.godot.replication.serializer.serialize
 import godot.Node
-import godot.core.Basis
-import godot.core.Transform3D
-import godot.core.Vector3
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import kotlin.reflect.KMutableProperty0
 
 typealias SerializedData = String
-
-@PublishedApi
-internal val json = Json {
-    isLenient = true
-    ignoreUnknownKeys = false
-}
-
-@PublishedApi
-internal inline fun <reified T> T.serialize(): SerializedData = when(T::class) {
-    Vector3::class -> json.encodeToString(Vector3Serializer(), this as Vector3)
-    Basis::class -> json.encodeToString(BasisSerializer(), this as Basis)
-    Transform3D::class -> json.encodeToString(Transform3DSerializer(), this as Transform3D)
-    else -> json.encodeToString<T>(this)
-}
-
-@PublishedApi
-internal inline fun <reified T> SerializedData.deserialize(): T = when(T::class) {
-    Vector3::class -> json.decodeFromString(Vector3Serializer(), this) as T
-    Basis::class -> json.decodeFromString(BasisSerializer(), this) as T
-    Transform3D::class -> json.decodeFromString(Transform3DSerializer(), this) as T
-    else -> json.decodeFromString<T>(this)
-}
 
 @DslMarker
 annotation class SyncConfigDslMarker
@@ -83,7 +55,7 @@ class SyncConfigDsl {
 
     class PropertyConfig<PROPERTY_TYPE> {
         var tick: Long = 16
-        val syncMethod: SyncConfig.SyncMethod = SyncConfig.SyncMethod.RELIABLE
+        var syncMethod: SyncConfig.SyncMethod = SyncConfig.SyncMethod.RELIABLE
         var syncOnSpawn: Boolean = true
         var syncOnTick: Boolean = true
         var shouldSendUpdate: (current: PROPERTY_TYPE, fromLastSync: PROPERTY_TYPE) -> Boolean = { current, fromLastSync -> current != fromLastSync }
@@ -100,6 +72,7 @@ fun Node.syncConfig(block: SyncConfigDsl.() -> Unit): SyncConfigs {
 data class SyncConfig(
     val tick: Long = 16,
     val syncMethod: SyncMethod = SyncMethod.RELIABLE,
+    val syncChannel: SyncChannel = SyncChannel.CHANNEL_0,
     val syncOnSpawn: Boolean = true,
     val syncOnTick: Boolean = true,
     val getter: () -> SerializedData,
@@ -108,7 +81,21 @@ data class SyncConfig(
 ) {
     enum class SyncMethod {
         RELIABLE,
-        UNRELIABLE
+        UNRELIABLE,
+        UNRELIABLE_ORDERED,
+    }
+
+    enum class SyncChannel {
+        CHANNEL_0,
+        CHANNEL_1,
+        CHANNEL_2,
+        CHANNEL_3,
+        CHANNEL_4,
+        CHANNEL_5,
+        CHANNEL_6,
+        CHANNEL_7,
+        CHANNEL_8,
+        CHANNEL_9,
     }
 }
 

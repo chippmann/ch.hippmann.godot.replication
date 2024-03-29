@@ -6,6 +6,7 @@ import godot.Node
 import godot.annotation.RegisterClass
 import godot.annotation.RegisterFunction
 import godot.annotation.Rpc
+import godot.annotation.RpcMode
 import godot.extensions.getNodeAs
 
 @RegisterClass
@@ -34,7 +35,7 @@ class RemoteListenerReadyRedirector: Node() {
         }
     }
 
-    @Rpc
+    @Rpc(rpcMode = RpcMode.ANY)
     @RegisterFunction
     fun remoteReady(nodePath: String) {
         val peerId = multiplayer?.getRemoteSenderId() ?: return

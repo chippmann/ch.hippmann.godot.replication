@@ -1,4 +1,4 @@
-package ch.hippmann.godot.replication.serializers
+package ch.hippmann.godot.replication.serializer.math
 
 import godot.core.Basis
 import godot.core.Transform3D
@@ -11,21 +11,21 @@ import kotlinx.serialization.encoding.Encoder
 
 @Serializable
 private data class Transform3DSurrogate(
-        @Serializable(with = BasisSerializer::class)
-        val basis: Basis,
-        @Serializable(with = Vector3Serializer::class)
-        val origin: Vector3
+    @Serializable(with = BasisSerializer::class)
+    val basis: Basis,
+    @Serializable(with = Vector3Serializer::class)
+    val origin: Vector3,
 )
 
-class Transform3DSerializer: KSerializer<Transform3D> {
+class Transform3DSerializer : KSerializer<Transform3D> {
     override val descriptor: SerialDescriptor = Transform3DSurrogate.serializer().descriptor
 
     override fun deserialize(decoder: Decoder): Transform3D {
         val surrogate = decoder.decodeSerializableValue(Transform3DSurrogate.serializer())
-        return Transform3D().apply {
-            basis = surrogate.basis
-            origin = surrogate.origin
-        }
+        return Transform3D(
+            p_basis = surrogate.basis,
+            p_origin = surrogate.origin,
+        )
     }
 
     override fun serialize(encoder: Encoder, value: Transform3D) {

@@ -1,4 +1,4 @@
-package ch.hippmann.godot.replication.serializers
+package ch.hippmann.godot.replication.serializer.math
 
 import godot.core.Basis
 import godot.core.Vector3
@@ -10,31 +10,31 @@ import kotlinx.serialization.encoding.Encoder
 
 @Serializable
 private data class BasisSurrogate(
-        @Serializable(with = Vector3Serializer::class)
-        val x: Vector3,
-        @Serializable(with = Vector3Serializer::class)
-        val y: Vector3,
-        @Serializable(with = Vector3Serializer::class)
-        val z: Vector3
+    @Serializable(with = Vector3Serializer::class)
+    val x: Vector3,
+    @Serializable(with = Vector3Serializer::class)
+    val y: Vector3,
+    @Serializable(with = Vector3Serializer::class)
+    val z: Vector3,
 )
 
-class BasisSerializer: KSerializer<Basis> {
+class BasisSerializer : KSerializer<Basis> {
     override val descriptor: SerialDescriptor = BasisSurrogate.serializer().descriptor
 
     override fun deserialize(decoder: Decoder): Basis {
         val surrogate = decoder.decodeSerializableValue(BasisSurrogate.serializer())
-        return Basis().apply {
-            x = surrogate.x
-            y = surrogate.y
-            z = surrogate.z
-        }
+        return Basis(
+            xAxis = surrogate.x,
+            yAxis = surrogate.y,
+            zAxis = surrogate.z,
+        )
     }
 
     override fun serialize(encoder: Encoder, value: Basis) {
         val surrogate = BasisSurrogate(
-                x = value.x,
-                y = value.y,
-                z = value.z,
+            x = value.x,
+            y = value.y,
+            z = value.z,
         )
         encoder.encodeSerializableValue(BasisSurrogate.serializer(), surrogate)
     }
