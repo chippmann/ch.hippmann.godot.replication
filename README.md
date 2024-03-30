@@ -3,50 +3,24 @@ This is a small library providing basic godot multiplayer replication from kotli
 
 > **Note:** this library is pretty barebones, and inefficient but should be quite easy to use. There is no lag compensation or similar present atm.
 
-## Usage
-At the moment this library is not pushed to maven central. In order to use it, you'll either have to facilitate gradles composite build feature or publish it locally.
+## Adding to your project
+Add the library as a dependency to your project. As it is published to maven central, you should also make sure that you have maven central set up as a repository:
+```kotlin
+repositories {
+    mavenCentral()
+}
 
-### Composite build
-- Clone the project
-- Add the following to the project in which you intend to use this library:
-  ```kotlin
-  // settings.gradle.kts
-  includeBuild("path/to/this/library/cloned/to/your/machine") {
-    dependencySubstitution {
-        substitute(module("ch.hippmann.godot:replication")).using(project(":"))
-    }
-  }
-  ```
-  ```kotlin
-  // build.gradle.kts
-  dependencies {
-    implementation("ch.hippmann.godot:replication:0.0.1")
-    
-    // if you plan on using the coroutine helpers; don't forget to add the kotlinx coroutines dependency:
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-  }
-  ```
-
-### Publish locally
-- Clone the project
-- `gradlew publishToMavenLocal`
-- Add the following to the project in which you intend to use this library:
-  ```kotlin
-  // build.gradle.kts
-  dependencies {
-    implementation("ch.hippmann.godot:replication:0.0.1")
-    
-    // if you plan on using the coroutine helpers; don't forget to add the kotlinx coroutines dependency:
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-  }
-  ```
+dependencies {
+    implementation("ch.hippmann.godot:replication:<version>")
+}
+```
 
 ## Usage
 ### Autoload
 Its required that you add the following autoload singletons:
 
 - From [ch.hippmann.godot:utilities](https://github.com/chippmann/ch.hippmann.godot.utilities) add the [DispatcherSingleton](https://github.com/chippmann/ch.hippmann.godot.utilities/blob/main/src/main/kotlin/ch/hippmann/godot/utilities/coroutines/DispatcherSingleton.kt)
-- From this library, add the [RemoteListenerReadyRedirector](src/main/kotlin/ch/hippmann/godot/replication/autoload/RemoteListenerReadyRedirector.kt)
+- From this library, add the [RemoteListenerReadyRedirector](replication/src/main/kotlin/ch/hippmann/godot/replication/autoload/RemoteListenerReadyRedirector.kt)
 
 ### Replication (spawning)
 If you want to have nodes replicated automatically if you add them to a node, implement the `Replicated` interface with the `Replicator` delegate and add your class to a node: 

@@ -1,6 +1,4 @@
 pluginManagement {
-    includeBuild("build-logic")
-
     repositories {
         mavenLocal()
         mavenCentral()
@@ -13,13 +11,19 @@ dependencyResolutionManagement {
         mavenLocal()
         mavenCentral()
     }
+
+    versionCatalogs {
+        create("libs") {
+            from(files("../gradle/libs.versions.toml"))
+        }
+    }
 }
 
 plugins {
-    // https://plugins.gradle.org/plugin/org.gradle.toolchains.foojay-resolver-convention
+    // to automatically download the toolchain jdk if missing
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
 
-rootProject.name = "replication"
+rootProject.name = "build-logic"
 
-include("replication")
+include(":convention")

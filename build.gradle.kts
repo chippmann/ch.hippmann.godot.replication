@@ -1,52 +1,42 @@
 plugins {
-    alias(libs.plugins.godot.kotlin.jvm)
-    alias(libs.plugins.kotlinx.serialization)
-    `maven-publish`
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.godot.kotlin.jvm) apply false
+    alias(libs.plugins.grgit)
 }
 
-group = "ch.hippmann.godot"
-version = libs.versions.godot.kotlin.jvm.replication.get()
-
-repositories {
-    mavenLocal()
-    mavenCentral()
+val versionString = libs.versions.godot.kotlin.jvm.replication.get()
+subprojects {
+    group = "ch.hippmann.godot"
+    version = versionString
 }
 
-godot {
-    classPrefix.set("Repl")
-    projectName.set("replication")
-    isRegistrationFileGenerationEnabled.set(false)
-}
+val baseUrl = "github.com/chippmann/ch.hippmann.godot.replication"
+tasks {
+    val generateChangelog by creating {
+        group = "changelog"
 
-dependencies {
-    compileOnly(libs.godot.kotlin.jvm)
-    implementation(libs.hippmann.godot.utilities)
-    implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.serialization.json)
-}
+        doLast {
+            val tags = grgit.tag.list().reversed().filter { !it.name.endsWith("-SNAPSHOT") }
+            val fromTag = tags.getOrNull(1) ?: grgit.log().last()
+            val toTag = tags.getOrNull(0)
+            val changeLogPrefix = """
+                **Changelog:**
+                
+            """.trimIndent()
 
-kotlin {
-    jvmToolchain(libs.versions.jvmToolchainVersion.get().toInt())
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
-}
-
-publishing {
-    publications {
-        @Suppress("UNUSED_VARIABLE")
-        val utilities by creating(MavenPublication::class) {
-            pom {
-                name.set(project.name)
-                description.set("Basic godot multiplayer replication implemented in Kotlin for Kotlin")
+            val changelogString = grgit.log {
+                range(fromTag, toTag?.name)
             }
-            artifactId = "replication"
-            description = "Basic godot multiplayer replication implemented in Kotlin for Kotlin"
-            artifact(tasks.jar)
-            artifact(tasks.getByName("sourcesJar"))
-            artifact(tasks.getByName("javadocJar"))
+                .joinToString(separator = "\n", prefix = changeLogPrefix) { commit ->
+                    val link = "https://$baseUrl/commit/${commit.id}"
+                    "- [${commit.abbreviatedId}]($link) ${commit.shortMessage}"
+                }
+
+            project.layout.buildDirectory.asFile.get().resolve("changelog.md").also {
+                if (!it.parentFile.exists()) {
+                    it.parentFile.mkdirs()
+                }
+            }.writeText(changelogString)
         }
     }
 }
