@@ -1,5 +1,5 @@
 [versions]
-godot-kotlin-jvm-replication = "0.0.1"
+godot-kotlin-jvm-replication = "0.0.2"
 jvmToolchainVersion = "17"
 
 kotlin="1.9.23"
