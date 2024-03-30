@@ -64,12 +64,6 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
             tickToConfigs.forEach { (tick, configs) ->
                 launch {
                     while (true) {
-                        if (!isMultiplayerAuthority()) {
-                            // safeguard in case the authority changes after initialization
-                            delay(tick)
-                            continue
-                        }
-
                         sendQueue.add {
                             val node = thisNode.get() ?: run {
                                 this.cancel()
