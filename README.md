@@ -19,7 +19,7 @@ dependencies {
 ### Autoload
 Its required that you add the following autoload singletons:
 
-- From [ch.hippmann.godot:utilities](https://github.com/chippmann/ch.hippmann.godot.utilities) add the [DispatcherSingleton](https://github.com/chippmann/ch.hippmann.godot.utilities/blob/main/src/main/kotlin/ch/hippmann/godot/utilities/coroutines/DispatcherSingleton.kt)
+- From [ch.hippmann.godot:utilities](https://github.com/chippmann/ch.hippmann.godot.utilities) add the [DispatcherSingleton](https://github.com/chippmann/ch.hippmann.godot.utilities/blob/main/utilities/src/main/kotlin/ch/hippmann/godot/utilities/coroutines/DispatcherSingleton.kt)
 - From this library, add the [RemoteListenerReadyRedirector](replication/src/main/kotlin/ch/hippmann/godot/replication/autoload/RemoteListenerReadyRedirector.kt)
 
 ### Replication (spawning)
@@ -37,7 +37,7 @@ class ExampleReplicator: Node3D(), Replicated by Replicator() {
 
 Nodes of type `Replicated` expose an editor property `managedScenes`. This you need to fill with all the packed scenes you want to have replicated.  
 Once such a scene is added as a direct child of `Replicated` on the network authority it gets also spawned on all other peers.  
-So keep in mind to fill this property in the editor and properly define you network authorities for the `Replicated` nodes!
+So keep in mind to fill this property in the editor and properly define your network authorities for the `Replicated` nodes!
 
 If the root node of a managed scene implements `Synchronized`, data you defined as `syncOnSpawn` in your `syncConfig` gets synced automatically on spawn of the child scene on a peer. More on that later.
 
@@ -100,4 +100,4 @@ class Player: CharacterBody3D(), Synchronized by Synchronizer() {
 
 Some notes regarding syncOnSpawn:
 - `syncOnSpawn` only has an effect if the `Synchronized` node is a direct child of `Replicated`! Otherwise, it will only sync upon first tick.
-- Sync on spawn takes the initial spawn data from the `syncConfig` after it has been added to the tree as a child of `Replicated`. So in order to make sure that the desired data is set, set all required properties before adding it to the tree. If this is not possible for a property (like the build in position for example), then it can only be synced upon first tick
+- Sync on spawn takes the initial spawn data from the `syncConfig` after it has been added to the tree as a child of `Replicated`. So in order to make sure that the desired data is set, set all required properties before the next tick.
