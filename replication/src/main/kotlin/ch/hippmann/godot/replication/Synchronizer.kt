@@ -93,7 +93,9 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
                                             }
                                         }
 
-                                        node.rpc(rpcFunction, fqName, syncData)
+                                        withRemoteListeners { peerId: Long ->
+                                            node.rpcId(peerId, rpcFunction, fqName, syncData)
+                                        }
                                     }
                         }
                         delay(tick)
