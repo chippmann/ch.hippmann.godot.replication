@@ -46,7 +46,7 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
                 rpcId(peerId, thisNodeAsWithRemoteListeners::peerOnAuthorityReadyForWithRemoteListeners)
             }
             ifPeer {
-                if (peerId == 1L) {
+                if (peerId == SERVER_PEER_ID) {
                     debug { "RemoteListener[${this.name}]: request subscription with authority" }
                     rpcId(peerId, thisNodeAsWithRemoteListeners::authorityOnPeerSubscribeForWithRemoteListeners)
                 }
@@ -72,13 +72,14 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
 
     override fun notificationOnPeerDisconnectedForWithRemoteListeners(peerId: Long) {
         listeningPeers.removeAll { listeningPeerId -> listeningPeerId == peerId }
+        onPeerUnsubscribed(peerId)
     }
 
     override fun authorityOnPeerSubscribeForWithRemoteListeners() {
         ifAuthority {
             val peerId = multiplayer?.getRemoteSenderId() ?: return
 
-            if (peerId != 0) {
+            if (peerId.toLong() != SERVER_PEER_ID) {
                 debug { "RemoteListener[${this.name}]: received new subscription from peer with id $peerId" }
                 listeningPeers.add(peerId.toLong())
                 onPeerSubscribed(peerId.toLong())
@@ -89,7 +90,7 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
     override fun authorityOnPeerUnsubscribeForWithRemoteListeners() {
         ifAuthority {
             val peerId = multiplayer?.getRemoteSenderId() ?: return
-            if (peerId != 0) {
+            if (peerId.toLong() != SERVER_PEER_ID) {
                 debug { "RemoteListener[${this.name}]: received unsubscribe from peer with id $peerId" }
                 listeningPeers.remove(peerId.toLong())
                 onPeerUnsubscribed(peerId.toLong())
