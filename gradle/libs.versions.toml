@@ -1,16 +1,16 @@
 [versions]
-godot-kotlin-jvm-replication = "0.0.4"
+godot-kotlin-jvm-replication = "0.0.5"
 jvmToolchainVersion = "17"
 
-kotlin="1.9.23"
-godot-kotlin-jvm="0.8.2-4.2.1" # https://github.com/utopia-rise/godot-kotlin-jvm/releases
-hippmann-godot-utilities="0.0.1" # https://github.com/chippmann/ch.hippmann.godot.utilities/releases
+kotlin = "2.0.20"
+godot-kotlin-jvm="0.10.0-4.3.0" # https://github.com/utopia-rise/godot-kotlin-jvm/releases
+hippmann-godot-utilities="0.0.6" # https://github.com/chippmann/ch.hippmann.godot.utilities/releases
 
-kotlinx-coroutines-core="1.8.0" # https://github.com/Kotlin/kotlinx.coroutines/releases
-kotlinx-serialization-json="1.6.3" # https://github.com/Kotlin/kotlinx.serialization/releases
+kotlinx-coroutines-core="1.9.0" # https://github.com/Kotlin/kotlinx.coroutines/releases
+kotlinx-serialization-json="1.7.3" # https://github.com/Kotlin/kotlinx.serialization/releases
 
-maven-publish="0.28.0"
-grgit="5.2.2"
+maven-publish="0.28.0" # https://github.com/vanniktech/gradle-maven-publish-plugin/releases
+grgit="5.2.2" # https://github.com/ajoberstar/grgit/releases
 
 [libraries]
 hippmann-godot-utilities = { group = "ch.hippmann.godot", name = "utilities", version.ref = "hippmann-godot-utilities" }

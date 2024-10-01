@@ -15,6 +15,7 @@ class RemoteListenerReadyRedirector: Node() {
         @PublishedApi
         internal val listeners: MutableMap<String, (peerId: Long) -> Unit> = mutableMapOf()
 
+        @Suppress("NOTHING_TO_INLINE")
         inline fun <T> T.notifyReady(noinline onRemoteReady: (peerId: Long) -> Unit) where T: WithRemoteListeners, T: WithNodeAccess {
             val node = thisNode.get() ?: return
             val nodePath = node.getPath().path
@@ -27,6 +28,7 @@ class RemoteListenerReadyRedirector: Node() {
             remoteListenerReadyRedirector.rpc(remoteListenerReadyRedirector::remoteReady, nodePath)
         }
 
+        @Suppress("NOTHING_TO_INLINE")
         inline fun <T> T.deregister() where T: WithRemoteListeners, T: WithNodeAccess {
             val node = thisNode.get() ?: return
             val nodePath = node.getPath().path

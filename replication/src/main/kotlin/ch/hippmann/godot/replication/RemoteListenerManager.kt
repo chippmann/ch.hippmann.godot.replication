@@ -1,7 +1,7 @@
 package ch.hippmann.godot.replication
 
 import ch.hippmann.godot.replication.autoload.RemoteListenerReadyRedirector.Companion.notifyReady
-import ch.hippmann.godot.utilities.logging.debug
+import ch.hippmann.godot.utilities.logging.Log
 import godot.Node
 
 class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAccessDelegate() {
@@ -24,7 +24,7 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
         this.ready.connect(this, WithRemoteListeners::notificationOnReadyForWithRemoteListeners)
         this.treeExiting.connect(this, WithRemoteListeners::notificationOnExitingTreeForWithRemoteListeners)
         this.multiplayer?.peerDisconnected?.connect(this, WithRemoteListeners::notificationOnPeerDisconnectedForWithRemoteListeners)
-        debug { "RemoteListener[${this.name}]: initialised" }
+        Log.debug("RemoteListener[${this.name}]: initialised")
     }
 
     override fun withRemoteListeners(block: (peerId: Long) -> Unit) {
@@ -42,30 +42,30 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
     override fun notificationOnReadyForWithRemoteListeners() {
         notifyReady { peerId ->
             ifAuthority {
-                debug { "RemoteListener[${this.name}]: send ready to peers as authority" }
+                Log.debug("RemoteListener[${this.name}]: send ready to peers as authority")
                 rpcId(peerId, thisNodeAsWithRemoteListeners::peerOnAuthorityReadyForWithRemoteListeners)
             }
             ifPeer {
                 if (peerId == SERVER_PEER_ID) {
-                    debug { "RemoteListener[${this.name}]: request subscription with authority" }
+                    Log.debug("RemoteListener[${this.name}]: request subscription with authority")
                     rpcId(peerId, thisNodeAsWithRemoteListeners::authorityOnPeerSubscribeForWithRemoteListeners)
                 }
             }
         }
 
 //        ifAuthority {
-//            debug { "RemoteListener[${this.name}]: send ready to peers as authority" }
+//            debug("RemoteListener[${this.name}]: send ready to peers as authority")
 //            rpc(thisNodeAsWithRemoteListeners::peerOnAuthorityReadyForWithRemoteListeners)
 //        }
 //        ifPeer {
-//            debug { "RemoteListener[${this.name}]: request subscription with authority as peer" }
+//            debug("RemoteListener[${this.name}]: request subscription with authority as peer")
 //            rpc(thisNodeAsWithRemoteListeners::authorityOnPeerSubscribeForWithRemoteListeners)
 //        }
     }
 
     override fun notificationOnExitingTreeForWithRemoteListeners() {
         ifPeer {
-            debug { "RemoteListener[${this.name}]: leaving tree. sending unsubscribe to authority" }
+            Log.debug("RemoteListener[${this.name}]: leaving tree. sending unsubscribe to authority")
             rpc(thisNodeAsWithRemoteListeners::authorityOnPeerUnsubscribeForWithRemoteListeners)
         }
     }
@@ -80,7 +80,7 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
             val peerId = multiplayer?.getRemoteSenderId() ?: return
 
             if (peerId.toLong() != SERVER_PEER_ID) {
-                debug { "RemoteListener[${this.name}]: received new subscription from peer with id $peerId" }
+                Log.debug("RemoteListener[${this.name}]: received new subscription from peer with id $peerId")
                 listeningPeers.add(peerId.toLong())
                 onPeerSubscribed(peerId.toLong())
             }
@@ -91,7 +91,7 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
         ifAuthority {
             val peerId = multiplayer?.getRemoteSenderId() ?: return
             if (peerId.toLong() != SERVER_PEER_ID) {
-                debug { "RemoteListener[${this.name}]: received unsubscribe from peer with id $peerId" }
+                Log.debug("RemoteListener[${this.name}]: received unsubscribe from peer with id $peerId")
                 listeningPeers.remove(peerId.toLong())
                 onPeerUnsubscribed(peerId.toLong())
             }
@@ -100,7 +100,7 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
 
     override fun peerOnAuthorityReadyForWithRemoteListeners() {
         ifPeer {
-            debug { "RemoteListener[${this.name}]: received that authority is ready. request subscription with authority as peer" }
+            Log.debug("RemoteListener[${this.name}]: received that authority is ready. request subscription with authority as peer")
             rpc(thisNodeAsWithRemoteListeners::authorityOnPeerSubscribeForWithRemoteListeners)
         }
     }

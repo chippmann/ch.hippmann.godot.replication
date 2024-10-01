@@ -1,16 +1,29 @@
 package ch.hippmann.godot.replication
 
-import ch.hippmann.godot.utilities.coroutines.scope.DefaultGodotCoroutineScope
-import ch.hippmann.godot.utilities.coroutines.scope.GodotCoroutineScope
-import ch.hippmann.godot.utilities.logging.debug
+import ch.hippmann.godot.utilities.logging.Log
 import godot.Node
+import godot.core.connect
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.*
+import kotlin.coroutines.CoroutineContext
 import kotlin.reflect.KFunction2
 
-class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(), WithNodeAccess by WithNodeAccessDelegate(), GodotCoroutineScope by DefaultGodotCoroutineScope() {
+class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(), WithNodeAccess by WithNodeAccessDelegate(), CoroutineScope {
+    override val coroutineContext: CoroutineContext = Dispatchers.Default + SupervisorJob() + object : CoroutineExceptionHandler {
+        override fun handleException(context: CoroutineContext, exception: Throwable) {
+            Log.err("An error occurred in a coroutine in ${this@Synchronizer::class.qualifiedName}", exception)
+        }
+        override val key: CoroutineContext.Key<*> = CoroutineExceptionHandler
+    }
+
     private var tickToConfigs: Map<Long, SyncConfigs> = mapOf()
     override var syncConfig: SyncConfigs = mutableMapOf()
         set(value) {
@@ -33,13 +46,17 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
     override fun <T> T.initSynchronization() where T : Node, T : Synchronized {
         initNodeAccess()
         initListening()
+        this.treeExiting.connect {
+            // cancel all syncs when exiting tree
+            coroutineContext.cancelChildren()
+        }
 
         // the delegate (this class) cannot access properties overridden by the implementer. So we cannot get its
         // config. Thus, we manually assign it here to whatever the implementer defined
         this@Synchronizer.syncConfig = this.syncConfig
 
         this.ready.connect(this, Synchronized::notificationOnReadyForSynchronized)
-        debug { "Synchronizer[${this.name}]: initialised" }
+        Log.debug { "Synchronizer[${this.name}]: initialised" }
     }
 
     override fun performSynchronization() {
@@ -63,7 +80,7 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
         ifAuthority {
             tickToConfigs.forEach { (tick, configs) ->
                 launch {
-                    while (true) {
+                    while (isActive) {
                         sendQueue.add {
                             val node = thisNode.get() ?: run {
                                 this.cancel()
@@ -74,7 +91,7 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
                                     .forEach { (fqName, syncConfig) ->
                                         val syncData = syncConfig.serializeSyncData()
 
-                                        debug { "Synchronizer[${this@ifAuthority.name}]: sending sync data: $syncData for property: $fqName to peers" }
+                                        Log.debug { "Synchronizer[${this@ifAuthority.name}]: sending sync data: $syncData for property: $fqName to peers" }
 
                                         val rpcFunction: KFunction2<String, String, Unit> = when(syncConfig.syncMethod) {
                                             SyncConfig.SyncMethod.RELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedReliable
@@ -127,7 +144,7 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
     private fun replicate(fqName: String, data: SerializedData) {
         receiveQueue.add {
             ifPeer {
-                debug { "Synchronizer[${this.name}]: received sync data: $data for property: $fqName" }
+                Log.debug { "Synchronizer[${this.name}]: received sync data: $data for property: $fqName" }
                 syncConfig[fqName]?.applySyncData(data)
             }
         }

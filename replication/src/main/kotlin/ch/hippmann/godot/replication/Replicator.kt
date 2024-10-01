@@ -2,12 +2,11 @@ package ch.hippmann.godot.replication
 
 import ch.hippmann.godot.replication.serializer.deserialize
 import ch.hippmann.godot.replication.serializer.serialize
-import ch.hippmann.godot.utilities.logging.debug
+import ch.hippmann.godot.utilities.logging.Log
 import godot.Node
 import godot.PackedScene
 import godot.core.StringName
 import godot.core.VariantArray
-import godot.core.asStringName
 import godot.extensions.getNodeAs
 import kotlinx.serialization.Serializable
 
@@ -27,14 +26,14 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
 
         childEnteredTree.connect(this, Replicated::notificationOnChildEnteredTreeForReplicated)
         childExitingTree.connect(this, Replicated::notificationOnChildExitingTreeForReplicated)
-        debug { "Replicator[${this.name}]: initialised" }
+        Log.debug { "Replicator[${this.name}]: initialised" }
     }
 
     override fun notificationOnChildEnteredTreeForReplicated(child: Node) {
         ifAuthority {
-            debug { "Replicator[${this.name}]: child added: ${child.name}" }
+            Log.debug { "Replicator[${this.name}]: child added: ${child.name}" }
             provideManagedSceneFromNode(child)?.let { managedScene ->
-                debug { "Replicator[${this.name}]: child has associated managed scene: ${managedScene.resourcePath}" }
+                Log.debug { "Replicator[${this.name}]: child has associated managed scene: ${managedScene.resourcePath}" }
 
                 withRemoteListeners { peerId ->
                     val spawnData = SpawnNodeData(
@@ -44,7 +43,7 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
                             spawnData = (child as? Synchronized)?.syncConfig?.serializeSpawnData()
                     )
 
-                    debug { "Replicator[${this.name}]: sending spawnData: $spawnData to peer with id: $peerId" }
+                    Log.debug { "Replicator[${this.name}]: sending spawnData: $spawnData to peer with id: $peerId" }
                     rpcId(
                             peerId,
                             thisNodeAsType<Replicated>()::peerSpawnForReplicated,
@@ -57,11 +56,11 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
 
     override fun notificationOnChildExitingTreeForReplicated(child: Node) {
         ifAuthority {
-            debug { "Replicator[${this.name}]: child left tree: ${child.name}" }
+            Log.debug { "Replicator[${this.name}]: child left tree: ${child.name}" }
             provideManagedSceneFromNode(child)?.let { managedScene ->
-                debug { "Replicator[${this.name}]: child has associated managed scene: ${managedScene.resourcePath}" }
+                Log.debug { "Replicator[${this.name}]: child has associated managed scene: ${managedScene.resourcePath}" }
                 withRemoteListeners { peerId ->
-                    debug { "Replicator[${this.name}]: sending despawn request for child: ${child.name} to peer with id: $peerId" }
+                    Log.debug { "Replicator[${this.name}]: sending despawn request for child: ${child.name} to peer with id: $peerId" }
                     rpcId(
                             peerId,
                             thisNodeAsType<Replicated>()::peerDespawnForReplicated,
@@ -91,18 +90,18 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
 
     override fun peerDespawnForReplicated(name: StringName) {
         ifPeer {
-            debug { "Replicator[${this.name}]: received despawn request for node with name: $name" }
+            Log.debug { "Replicator[${this.name}]: received despawn request for node with name: $name" }
             getNodeAs<Node>(name.toString())?.queueFree()
         }
     }
 
     private fun Node.spawnNode(spawnNodeData: SpawnNodeData) {
-        debug { "Replicator[${this.name}]: received spawn request with spawnData: $spawnNodeData" }
+        Log.debug { "Replicator[${this.name}]: received spawn request with spawnData: $spawnNodeData" }
 
         _managedScenes[spawnNodeData.packedScenePath]
                 ?.instantiate()
                 ?.let { node ->
-                    node.name = spawnNodeData.nodeName.asStringName()
+                    node.setName(spawnNodeData.nodeName)
                     node.setMultiplayerAuthority(spawnNodeData.authority.toInt())
                     addChild(node)
                     spawnNodeData.spawnData?.let { (node as? Synchronized)?.syncConfig?.applySpawnData(it) }
@@ -124,7 +123,7 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
                         }
                     }
 
-            debug { "Replicator[${this.name}]: peer with id: $peerId subscribed. Sending initial spawnData: $spawnNodesData" }
+            Log.debug { "Replicator[${this.name}]: peer with id: $peerId subscribed. Sending initial spawnData: $spawnNodesData" }
 
             rpcId(
                     peerId,
