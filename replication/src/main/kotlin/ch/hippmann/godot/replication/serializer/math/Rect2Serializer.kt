@@ -10,8 +10,8 @@ import kotlinx.serialization.encoding.Encoder
 
 @Serializable
 private data class Rect2Surrogate(
-    @Serializable (Vector2Serializer::class) val position: Vector2,
-    @Serializable (Vector2Serializer::class) val size: Vector2,
+    @Serializable(Vector2Serializer::class) val position: Vector2,
+    @Serializable(Vector2Serializer::class) val size: Vector2,
 )
 
 class Rect2Serializer : KSerializer<Rect2> {

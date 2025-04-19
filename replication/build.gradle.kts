@@ -17,7 +17,7 @@ godot {
 }
 
 dependencies {
-    compileOnly(libs.godot.kotlin.jvm)
+    compileOnly(libs.godot.kotlin.jvm.api)
     implementation(libs.hippmann.godot.utilities)
     api(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
@@ -67,6 +67,10 @@ tasks {
     // disable shadow jar creation to be able to publish (otherwise we have a jar conflict. It's not needed anyways. Ideally this should be fixed in Godot Kotlin directly)
     shadowJar.configure {
         enabled = false
+    }
+
+    afterEvaluate {
+        findByName("copyJars")?.dependsOn(withType(Sign::class.java))
     }
 }
 

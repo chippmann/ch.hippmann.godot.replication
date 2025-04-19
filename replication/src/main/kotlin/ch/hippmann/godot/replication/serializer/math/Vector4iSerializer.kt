@@ -11,7 +11,7 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeStructure
 
-class Vector4iSerializer: KSerializer<Vector4i> {
+class Vector4iSerializer : KSerializer<Vector4i> {
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor(Vector4i::class.qualifiedName!!) {
         element<Int>("x")
         element<Int>("y")

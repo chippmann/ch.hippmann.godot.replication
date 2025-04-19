@@ -22,7 +22,7 @@ class AABBSerializer : KSerializer<AABB> {
     override fun deserialize(decoder: Decoder): AABB {
         val surrogate = decoder.decodeSerializableValue(AABBSurrogate.serializer())
         return AABB(
-            position =  surrogate.position,
+            position = surrogate.position,
             size = surrogate.size
         )
     }

@@ -2,7 +2,7 @@ package ch.hippmann.godot.replication
 
 import ch.hippmann.godot.replication.serializer.deserialize
 import ch.hippmann.godot.replication.serializer.serialize
-import godot.Node
+import godot.api.Node
 import kotlin.reflect.KMutableProperty0
 
 typealias SerializedData = String
@@ -38,18 +38,18 @@ class SyncConfigDsl {
         var lastSyncState: PROPERTY_TYPE? = null
 
         configs[fqName] = SyncConfig(
-                tick = propertyConfig.tick,
-                syncMethod = propertyConfig.syncMethod,
-                syncOnSpawn = propertyConfig.syncOnSpawn,
-                syncOnTick = propertyConfig.syncOnTick,
-                getter = { serializer(property.get()) },
-                setter = { data -> property.set(deserializer(data)) },
-                shouldSendUpdate = {
-                    val current = property.get()
-                    val result = lastSyncState?.let { propertyConfig.shouldSendUpdate(current, it) } ?: true
-                    lastSyncState = current
-                    result
-                }
+            tick = propertyConfig.tick,
+            syncMethod = propertyConfig.syncMethod,
+            syncOnSpawn = propertyConfig.syncOnSpawn,
+            syncOnTick = propertyConfig.syncOnTick,
+            getter = { serializer(property.get()) },
+            setter = { data -> property.set(deserializer(data)) },
+            shouldSendUpdate = {
+                val current = property.get()
+                val result = lastSyncState?.let { propertyConfig.shouldSendUpdate(current, it) } ?: true
+                lastSyncState = current
+                result
+            }
         )
     }
 
@@ -104,19 +104,19 @@ typealias SyncConfigDto = SerializedData
 //TODO: Kotlin 1.8.0: add Replicated context
 fun SyncConfigs.serializeSpawnData(): SerializedData {
     val spawnData: Map<String, SyncConfigDto> = filterValues { config -> config.syncOnSpawn }
-            .map { (fqName, config) ->
-                fqName to config.getter()
-            }
-            .toMap()
+        .map { (fqName, config) ->
+            fqName to config.getter()
+        }
+        .toMap()
     return spawnData.serialize()
 }
 
 fun SyncConfigs.applySpawnData(data: SerializedData) {
     data
-            .deserialize<Map<String, SyncConfigDto>>()
-            .forEach { (fqName, data) ->
-                get(fqName)?.setter?.invoke(data)
-            }
+        .deserialize<Map<String, SyncConfigDto>>()
+        .forEach { (fqName, data) ->
+            get(fqName)?.setter?.invoke(data)
+        }
 }
 
 //TODO: Kotlin 1.8.0: add Replicated context

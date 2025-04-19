@@ -1,6 +1,6 @@
 package ch.hippmann.godot.replication
 
-import godot.Node
+import godot.api.Node
 import godot.annotation.RegisterFunction
 import godot.annotation.Rpc
 import godot.annotation.RpcMode
@@ -9,8 +9,8 @@ interface WithRemoteListeners {
     val listeningPeers: List<Long>
 
     fun <T> T.initListening(
-            onPeerSubscribed: (peerId: Long) -> Unit = {},
-            onPeerUnsubscribed: (peerId: Long) -> Unit = {},
+        onPeerSubscribed: (peerId: Long) -> Unit = {},
+        onPeerUnsubscribed: (peerId: Long) -> Unit = {},
     ) where T : Node, T : WithRemoteListeners
 
     fun withRemoteListeners(block: (peerId: Long) -> Unit)

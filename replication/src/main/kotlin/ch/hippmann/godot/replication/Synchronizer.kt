@@ -1,7 +1,7 @@
 package ch.hippmann.godot.replication
 
 import ch.hippmann.godot.utilities.logging.Log
-import godot.Node
+import godot.api.Node
 import godot.core.connect
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -16,11 +16,13 @@ import java.util.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.reflect.KFunction2
 
-class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(), WithNodeAccess by WithNodeAccessDelegate(), CoroutineScope {
+class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(),
+    WithNodeAccess by WithNodeAccessDelegate(), CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.Default + SupervisorJob() + object : CoroutineExceptionHandler {
         override fun handleException(context: CoroutineContext, exception: Throwable) {
             Log.err("An error occurred in a coroutine in ${this@Synchronizer::class.qualifiedName}", exception)
         }
+
         override val key: CoroutineContext.Key<*> = CoroutineExceptionHandler
     }
 
@@ -29,15 +31,15 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
         set(value) {
             field = value
             tickToConfigs = value
-                    .map { (fqName, config) ->
-                        config.tick to (fqName to config)
-                    }
-                    .groupBy { (tick, _) -> tick }
-                    .mapValues { (_, values) ->
-                        values
-                                .associate { value -> value.second }
-                                .filterValues { config -> config.syncOnTick }
-                    }
+                .map { (fqName, config) ->
+                    config.tick to (fqName to config)
+                }
+                .groupBy { (tick, _) -> tick }
+                .mapValues { (_, values) ->
+                    values
+                        .associate { value -> value.second }
+                        .filterValues { config -> config.syncOnTick }
+                }
         }
 
     private val sendQueue: Queue<() -> Unit> = LinkedList()
@@ -87,33 +89,33 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
                                 return@add
                             }
                             configs
-                                    .filterValues { syncConfig -> syncConfig.shouldSendUpdate() }
-                                    .forEach { (fqName, syncConfig) ->
-                                        val syncData = syncConfig.serializeSyncData()
+                                .filterValues { syncConfig -> syncConfig.shouldSendUpdate() }
+                                .forEach { (fqName, syncConfig) ->
+                                    val syncData = syncConfig.serializeSyncData()
 
-                                        Log.debug { "Synchronizer[${this@ifAuthority.name}]: sending sync data: $syncData for property: $fqName to peers" }
+                                    Log.debug { "Synchronizer[${this@ifAuthority.name}]: sending sync data: $syncData for property: $fqName to peers" }
 
-                                        val rpcFunction: KFunction2<String, String, Unit> = when(syncConfig.syncMethod) {
-                                            SyncConfig.SyncMethod.RELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedReliable
-                                            SyncConfig.SyncMethod.UNRELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliable
-                                            SyncConfig.SyncMethod.UNRELIABLE_ORDERED -> when(syncConfig.syncChannel) {
-                                                SyncConfig.SyncChannel.CHANNEL_0 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel0
-                                                SyncConfig.SyncChannel.CHANNEL_1 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel1
-                                                SyncConfig.SyncChannel.CHANNEL_2 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel2
-                                                SyncConfig.SyncChannel.CHANNEL_3 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel3
-                                                SyncConfig.SyncChannel.CHANNEL_4 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel4
-                                                SyncConfig.SyncChannel.CHANNEL_5 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel5
-                                                SyncConfig.SyncChannel.CHANNEL_6 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel6
-                                                SyncConfig.SyncChannel.CHANNEL_7 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel7
-                                                SyncConfig.SyncChannel.CHANNEL_8 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel8
-                                                SyncConfig.SyncChannel.CHANNEL_9 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel9
-                                            }
-                                        }
-
-                                        withRemoteListeners { peerId: Long ->
-                                            node.rpcId(peerId, rpcFunction, fqName, syncData)
+                                    val rpcFunction: KFunction2<String, String, Unit> = when (syncConfig.syncMethod) {
+                                        SyncConfig.SyncMethod.RELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedReliable
+                                        SyncConfig.SyncMethod.UNRELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliable
+                                        SyncConfig.SyncMethod.UNRELIABLE_ORDERED -> when (syncConfig.syncChannel) {
+                                            SyncConfig.SyncChannel.CHANNEL_0 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel0
+                                            SyncConfig.SyncChannel.CHANNEL_1 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel1
+                                            SyncConfig.SyncChannel.CHANNEL_2 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel2
+                                            SyncConfig.SyncChannel.CHANNEL_3 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel3
+                                            SyncConfig.SyncChannel.CHANNEL_4 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel4
+                                            SyncConfig.SyncChannel.CHANNEL_5 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel5
+                                            SyncConfig.SyncChannel.CHANNEL_6 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel6
+                                            SyncConfig.SyncChannel.CHANNEL_7 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel7
+                                            SyncConfig.SyncChannel.CHANNEL_8 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel8
+                                            SyncConfig.SyncChannel.CHANNEL_9 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel9
                                         }
                                     }
+
+                                    withRemoteListeners { peerId: Long ->
+                                        node.rpcId(peerId, rpcFunction, fqName, syncData)
+                                    }
+                                }
                         }
                         delay(tick)
                     }

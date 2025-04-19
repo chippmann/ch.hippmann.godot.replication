@@ -3,14 +3,15 @@ package ch.hippmann.godot.replication
 import ch.hippmann.godot.replication.serializer.deserialize
 import ch.hippmann.godot.replication.serializer.serialize
 import ch.hippmann.godot.utilities.logging.Log
-import godot.Node
-import godot.PackedScene
+import godot.api.Node
+import godot.api.PackedScene
 import godot.core.StringName
 import godot.core.VariantArray
-import godot.extensions.getNodeAs
+import godot.extension.getNodeAs
 import kotlinx.serialization.Serializable
 
-class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), WithNodeAccess by WithNodeAccessDelegate() {
+class Replicator : Replicated, WithRemoteListeners by RemoteListenerManager(),
+    WithNodeAccess by WithNodeAccessDelegate() {
     private val _managedScenes: MutableMap<String, PackedScene> = mutableMapOf()
     override var managedScenes: VariantArray<PackedScene> = VariantArray()
         set(value) {
@@ -37,17 +38,17 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
 
                 withRemoteListeners { peerId ->
                     val spawnData = SpawnNodeData(
-                            nodeName = child.name.toString(),
-                            authority = child.getMultiplayerAuthority().toLong(),
-                            packedScenePath = managedScene.resourcePath,
-                            spawnData = (child as? Synchronized)?.syncConfig?.serializeSpawnData()
+                        nodeName = child.name.toString(),
+                        authority = child.getMultiplayerAuthority().toLong(),
+                        packedScenePath = managedScene.resourcePath,
+                        spawnData = (child as? Synchronized)?.syncConfig?.serializeSpawnData()
                     )
 
                     Log.debug { "Replicator[${this.name}]: sending spawnData: $spawnData to peer with id: $peerId" }
                     rpcId(
-                            peerId,
-                            thisNodeAsType<Replicated>()::peerSpawnForReplicated,
-                            spawnData.serialize()
+                        peerId,
+                        thisNodeAsType<Replicated>()::peerSpawnForReplicated,
+                        spawnData.serialize()
                     )
                 }
             }
@@ -62,9 +63,9 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
                 withRemoteListeners { peerId ->
                     Log.debug { "Replicator[${this.name}]: sending despawn request for child: ${child.name} to peer with id: $peerId" }
                     rpcId(
-                            peerId,
-                            thisNodeAsType<Replicated>()::peerDespawnForReplicated,
-                            child.name
+                        peerId,
+                        thisNodeAsType<Replicated>()::peerDespawnForReplicated,
+                        child.name
                     )
                 }
             }
@@ -81,10 +82,10 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
     override fun peerSpawnAllForReplicated(spawnNodesData: SerializedData) {
         ifPeer {
             spawnNodesData
-                    .deserialize<List<SpawnNodeData>>()
-                    .forEach { spawnNodeData ->
-                        spawnNode(spawnNodeData)
-                    }
+                .deserialize<List<SpawnNodeData>>()
+                .forEach { spawnNodeData ->
+                    spawnNode(spawnNodeData)
+                }
         }
     }
 
@@ -99,57 +100,56 @@ class Replicator: Replicated, WithRemoteListeners by RemoteListenerManager(), Wi
         Log.debug { "Replicator[${this.name}]: received spawn request with spawnData: $spawnNodeData" }
 
         _managedScenes[spawnNodeData.packedScenePath]
-                ?.instantiate()
-                ?.let { node ->
-                    node.setName(spawnNodeData.nodeName)
-                    node.setMultiplayerAuthority(spawnNodeData.authority.toInt())
-                    addChild(node)
-                    spawnNodeData.spawnData?.let { (node as? Synchronized)?.syncConfig?.applySpawnData(it) }
-                }
+            ?.instantiate()
+            ?.let { node ->
+                node.setName(spawnNodeData.nodeName)
+                node.setMultiplayerAuthority(spawnNodeData.authority.toInt())
+                addChild(node)
+                spawnNodeData.spawnData?.let { (node as? Synchronized)?.syncConfig?.applySpawnData(it) }
+            }
     }
 
     private fun onPeerSubscribe(peerId: Long) {
         ifAuthority {
             val spawnNodesData = getChildren()
-                    .filterIsInstance<Node>()
-                    .mapNotNull { node ->
-                        provideManagedSceneFromNode(node)?.let { packedScene ->
-                            SpawnNodeData(
-                                    nodeName = node.name.toString(),
-                                    authority = node.getMultiplayerAuthority().toLong(),
-                                    packedScenePath = packedScene.resourcePath,
-                                    spawnData = (node as? Synchronized)?.syncConfig?.serializeSpawnData()
-                            )
-                        }
+                .mapNotNull { node ->
+                    provideManagedSceneFromNode(node)?.let { packedScene ->
+                        SpawnNodeData(
+                            nodeName = node.name.toString(),
+                            authority = node.getMultiplayerAuthority().toLong(),
+                            packedScenePath = packedScene.resourcePath,
+                            spawnData = (node as? Synchronized)?.syncConfig?.serializeSpawnData()
+                        )
                     }
+                }
 
             Log.debug { "Replicator[${this.name}]: peer with id: $peerId subscribed. Sending initial spawnData: $spawnNodesData" }
 
             rpcId(
-                    peerId,
-                    thisNodeAsType<Replicated>()::peerSpawnAllForReplicated,
-                    spawnNodesData.serialize()
+                peerId,
+                thisNodeAsType<Replicated>()::peerSpawnAllForReplicated,
+                spawnNodesData.serialize()
             )
         }
     }
 
     private fun provideManagedSceneFromNode(node: Node): PackedScene? {
         return node
-                .sceneFilePath
-                .let { scenePath ->
-                    if (scenePath.isNotEmpty()) {
-                        _managedScenes[scenePath]
-                    } else null
-                }
+            .sceneFilePath
+            .let { scenePath ->
+                if (scenePath.isNotEmpty()) {
+                    _managedScenes[scenePath]
+                } else null
+            }
     }
 }
 
 @Serializable
 private class SpawnNodeData(
-        val nodeName: String,
-        val authority: Long,
-        val packedScenePath: String,
-        val spawnData: SerializedData?
+    val nodeName: String,
+    val authority: Long,
+    val packedScenePath: String,
+    val spawnData: SerializedData?
 ) {
     override fun toString(): String {
         return """

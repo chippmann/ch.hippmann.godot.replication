@@ -40,3 +40,5 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+/replication/jvm/
+/.idea/AndroidProjectSystem.xml

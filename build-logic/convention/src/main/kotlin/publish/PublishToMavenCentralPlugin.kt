@@ -34,22 +34,23 @@ class PublishToMavenCentralPlugin : Plugin<Project> {
         val extension = target.extensions.create("publishConfig", PublishExtension::class.java)
 
         target.afterEvaluate { evaluatedProject ->
-            evaluatedProject.pluginManager.apply(MavenPublishPlugin::class.java)
-            evaluatedProject.extensions.getByType(MavenPublishBaseExtension::class.java).apply {
-                publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-                val mavenCentralUser = extension.mavenCentralUser.orNull
-                val mavenCentralPassword = extension.mavenCentralPassword.orNull
-                val gpgInMemoryKey = extension.gpgInMemoryKey.orNull
-                val gpgPassword = extension.gpgPassword.orNull
+            val mavenCentralUser = extension.mavenCentralUser.orNull
+            val mavenCentralPassword = extension.mavenCentralPassword.orNull
+            val gpgInMemoryKey = extension.gpgInMemoryKey.orNull
+            val gpgPassword = extension.gpgPassword.orNull
 
-                val canSign = mavenCentralUser != null && mavenCentralPassword != null && gpgInMemoryKey != null && gpgPassword != null
+            val canSign = mavenCentralUser != null && mavenCentralPassword != null && gpgInMemoryKey != null && gpgPassword != null
 
-                if (canSign) {
-                    evaluatedProject.logger.info("Will sign artifact for project \"${evaluatedProject.name}\" and setup publishing")
+            if (canSign) {
+                evaluatedProject.logger.info("Will sign artifact for project \"${evaluatedProject.name}\" and setup publishing")
+
+                evaluatedProject.pluginManager.apply(MavenPublishPlugin::class.java)
+                evaluatedProject.extensions.getByType(MavenPublishBaseExtension::class.java).apply {
+                    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
                     signAllPublications()
-                } else {
-                    evaluatedProject.logger.warn("Cannot sign project \"${evaluatedProject.name}\" as credentials are missing. Will not setup signing and remote publishing credentials. Publishing will only work to maven local!")
                 }
+            } else {
+                evaluatedProject.logger.warn("Cannot sign project \"${evaluatedProject.name}\" as credentials are missing. Will not setup signing and remote publishing credentials. Publishing will only work to maven local!")
             }
         }
     }

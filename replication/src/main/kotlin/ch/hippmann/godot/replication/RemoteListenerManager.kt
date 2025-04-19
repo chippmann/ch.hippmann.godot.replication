@@ -2,7 +2,7 @@ package ch.hippmann.godot.replication
 
 import ch.hippmann.godot.replication.autoload.RemoteListenerReadyRedirector.Companion.notifyReady
 import ch.hippmann.godot.utilities.logging.Log
-import godot.Node
+import godot.api.Node
 
 class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAccessDelegate() {
     private var onPeerSubscribed: (peerId: Long) -> Unit = {}
@@ -14,8 +14,8 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
     override val listeningPeers: MutableList<Long> = mutableListOf()
 
     override fun <T> T.initListening(
-            onPeerSubscribed: (peerId: Long) -> Unit,
-            onPeerUnsubscribed: (peerId: Long) -> Unit,
+        onPeerSubscribed: (peerId: Long) -> Unit,
+        onPeerUnsubscribed: (peerId: Long) -> Unit,
     ) where T : Node, T : WithRemoteListeners {
         initNodeAccess()
         this@RemoteListenerManager.onPeerSubscribed = onPeerSubscribed
@@ -23,7 +23,10 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
 
         this.ready.connect(this, WithRemoteListeners::notificationOnReadyForWithRemoteListeners)
         this.treeExiting.connect(this, WithRemoteListeners::notificationOnExitingTreeForWithRemoteListeners)
-        this.multiplayer?.peerDisconnected?.connect(this, WithRemoteListeners::notificationOnPeerDisconnectedForWithRemoteListeners)
+        this.multiplayer?.peerDisconnected?.connect(
+            this,
+            WithRemoteListeners::notificationOnPeerDisconnectedForWithRemoteListeners
+        )
         Log.debug("RemoteListener[${this.name}]: initialised")
     }
 
