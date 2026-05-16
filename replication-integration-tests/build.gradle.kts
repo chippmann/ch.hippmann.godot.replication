@@ -67,6 +67,12 @@ tasks.matching { it.name == "copyJars" }.configureEach {
 tasks.test {
     useJUnitPlatform()
 
+    // Each test class spawns up to 3 Godot subprocesses. Running test classes in
+    // parallel forks (Gradle's default for some configurations) would mean N×3 Godot
+    // processes contending for CPU, ports, and the JVM bootstrap simultaneously — we
+    // saw flaky pollUntil timeouts under that pressure. Force one test class at a time.
+    maxParallelForks = 1
+
     // The orchestrator needs to know where Godot lives and where the project dir is.
     systemProperty(
         "godot.bin",

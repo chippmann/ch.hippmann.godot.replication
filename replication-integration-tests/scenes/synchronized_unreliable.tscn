@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://gdj/ch/hippmann/godot/replication/integrationtests/TestRunner.gdj" id="1_runner"]
+[ext_resource type="Script" path="res://gdj/ch/hippmann/godot/replication/integrationtests/fixtures/IntegrationTestUnreliableSynced.gdj" id="2_unreliable"]
+
+[node name="TestRunner" type="Node"]
+script = ExtResource("1_runner")
+
+[node name="Synced" type="Node" parent="."]
+script = ExtResource("2_unreliable")
