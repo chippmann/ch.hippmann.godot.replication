@@ -24,6 +24,9 @@ interface WithRemoteListeners {
     fun notificationOnExitingTreeForWithRemoteListeners()
 
     @RegisterFunction
+    fun notificationOnPeerConnectedForWithRemoteListeners(peerId: Long)
+
+    @RegisterFunction
     fun notificationOnPeerDisconnectedForWithRemoteListeners(peerId: Long)
 
     @Rpc(rpcMode = RpcMode.ANY)

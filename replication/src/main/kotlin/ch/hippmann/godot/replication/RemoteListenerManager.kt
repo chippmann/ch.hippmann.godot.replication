@@ -1,5 +1,6 @@
 package ch.hippmann.godot.replication
 
+import ch.hippmann.godot.replication.autoload.RemoteListenerReadyRedirector
 import ch.hippmann.godot.replication.autoload.RemoteListenerReadyRedirector.Companion.notifyReady
 import ch.hippmann.godot.utilities.logging.Log
 import godot.api.Node
@@ -23,6 +24,10 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
 
         this.ready.connect(this, WithRemoteListeners::notificationOnReadyForWithRemoteListeners)
         this.treeExiting.connect(this, WithRemoteListeners::notificationOnExitingTreeForWithRemoteListeners)
+        this.multiplayer?.peerConnected?.connect(
+            this,
+            WithRemoteListeners::notificationOnPeerConnectedForWithRemoteListeners
+        )
         this.multiplayer?.peerDisconnected?.connect(
             this,
             WithRemoteListeners::notificationOnPeerDisconnectedForWithRemoteListeners
@@ -73,6 +78,19 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
         }
     }
 
+    override fun notificationOnPeerConnectedForWithRemoteListeners(peerId: Long) {
+        // notifyReady() fires once on _ready, before scenes have a chance to bring multiplayer
+        // up. Re-announce ourselves to each newly-connected peer so the handshake still
+        // completes when our local _ready ran while multiplayerPeer was still null.
+        val node = thisNode.get() ?: return
+        val nodePath = node.getPath().path
+        val redirector = node.getNodeOrNull("/root/${RemoteListenerReadyRedirector::class.simpleName}")
+            as? RemoteListenerReadyRedirector
+            ?: return
+        Log.debug("RemoteListener[${node.name}]: peer $peerId connected. re-announcing ready")
+        redirector.rpcId(peerId, redirector::remoteReady, nodePath)
+    }
+
     override fun notificationOnPeerDisconnectedForWithRemoteListeners(peerId: Long) {
         listeningPeers.removeAll { listeningPeerId -> listeningPeerId == peerId }
         onPeerUnsubscribed(peerId)
@@ -80,11 +98,15 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
 
     override fun authorityOnPeerSubscribeForWithRemoteListeners() {
         ifAuthority {
-            val peerId = multiplayer?.getRemoteSenderId() ?: return
+            val peerId = multiplayer?.getRemoteSenderId()?.toLong() ?: return
 
+            if (peerId in listeningPeers) {
+                Log.debug("RemoteListener[${this.name}]: peer $peerId already subscribed, ignoring duplicate")
+                return
+            }
             Log.debug("RemoteListener[${this.name}]: received new subscription from peer with id $peerId")
-            listeningPeers.add(peerId.toLong())
-            onPeerSubscribed(peerId.toLong())
+            listeningPeers.add(peerId)
+            onPeerSubscribed(peerId)
         }
     }
 
