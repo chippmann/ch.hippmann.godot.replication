@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://gdj/ch/hippmann/godot/replication/it/fixtures/ManagedCube.gdj" id="1_cube"]
+[ext_resource type="Script" path="res://gdj/ch/hippmann/godot/replication/integrationtests/fixtures/ManagedCube.gdj" id="1_cube"]
 
 [node name="ManagedCube" type="Node"]
 script = ExtResource("1_cube")

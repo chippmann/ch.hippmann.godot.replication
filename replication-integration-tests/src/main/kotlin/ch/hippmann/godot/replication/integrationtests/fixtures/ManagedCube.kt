@@ -1,4 +1,4 @@
-package ch.hippmann.godot.replication.it.fixtures
+package ch.hippmann.godot.replication.integrationtests.fixtures
 
 import godot.annotation.RegisterClass
 import godot.api.Node

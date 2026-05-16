@@ -4,25 +4,25 @@ import ch.hippmann.godot.replication.integrationtests.TestContext
 import ch.hippmann.godot.replication.integrationtests.TestScenario
 
 /**
- * Server spawns a managed scene under the Replicator AFTER all clients are connected.
- * Each client should observe the child propagate through the spawn-on-add RPC.
+ * Server spawns a managed scene **before** any client connects. A late-joining client
+ * should still observe the existing child via the `peerSpawnAllForReplicated`
+ * snapshot RPC fired when the authority sees its `onPeerSubscribed`.
  *
- * Scene setup (TestRunner + Replicator with `managedScenes` configured) comes from
- * `res://scenes/replication_basic.tscn`; this scenario does no node construction.
+ * This exercises a code path the [SpawnScenario] doesn't — the snapshot replay
+ * rather than the spawn-on-add broadcast.
  */
-class SpawnScenario : TestScenario {
+class LateJoinScenario : TestScenario {
     override suspend fun runAsServer(context: TestContext) {
         context.startServer()
-        context.awaitClientsConnected(context.args.expectedClientCount)
 
+        // Spawn BEFORE clients connect. Clients will receive the spawn via the snapshot
+        // RPC the library sends on peer subscription.
         val replicator = context.replicator
         val managedScene = replicator.managedScenes.first()
-        val instance = managedScene.instantiate()!!.apply { setName("ManagedInstance") }
-        replicator.addChild(instance)
+        replicator.addChild(managedScene.instantiate()!!.apply { setName("PreSpawnedChild") })
 
-        context.put("spawnedChildCount", replicator.getChildCount().toInt())
-
-        // Hold the server alive until all clients have observed + reported + disconnected.
+        context.put("preSpawnedChildCount", replicator.getChildCount().toInt())
+        context.awaitClientsConnected(context.args.expectedClientCount)
         context.awaitAllClientsDisconnected()
     }
 

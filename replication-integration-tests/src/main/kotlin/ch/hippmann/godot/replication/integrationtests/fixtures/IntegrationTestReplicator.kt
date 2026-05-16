@@ -1,4 +1,4 @@
-package ch.hippmann.godot.replication.it.fixtures
+package ch.hippmann.godot.replication.integrationtests.fixtures
 
 import ch.hippmann.godot.replication.Replicated
 import ch.hippmann.godot.replication.Replicator
@@ -15,7 +15,7 @@ import godot.api.Node
  * actually initializes — usable only as a Kotlin marker, not at runtime.
  */
 @RegisterClass
-class ITReplicator : Node(), Replicated by Replicator() {
+class IntegrationTestReplicator : Node(), Replicated by Replicator() {
     @RegisterFunction
     override fun _enterTree() {
         initReplication()

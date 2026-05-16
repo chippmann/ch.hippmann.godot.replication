@@ -1,4 +1,4 @@
-package ch.hippmann.godot.replication.it
+package ch.hippmann.godot.replication.integrationtests
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -8,9 +8,10 @@ import java.io.File
 import java.net.ServerSocket
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
+import kotlin.reflect.KClass
 
-class GodotPeerProcess(
-    val peerId: String,
+class PeerHandle internal constructor(
+    val peerName: String,
     val role: String,
     val process: Process,
     val stdoutFile: File,
@@ -18,7 +19,7 @@ class GodotPeerProcess(
 )
 
 data class PeerResult(
-    val peerId: String,
+    val peerName: String,
     val role: String,
     val passed: Boolean,
     val data: JsonObject,
@@ -29,76 +30,98 @@ data class PeerResult(
 )
 
 class ProcessOrchestrator(
-    private val godotBin: String,
-    private val projectDir: File,
+    private val godotBinary: String,
+    private val godotProjectDir: File,
 ) {
-    private val processes = mutableListOf<GodotPeerProcess>()
-    private val port: Int = ServerSocket(0).use { it.localPort }
-    private val resultDir: File = Files.createTempDirectory("repl-it-").toFile()
+    private val handles = mutableListOf<PeerHandle>()
+    val port: Int = ServerSocket(0).use { it.localPort }
+    val resultDir: File = Files.createTempDirectory("replication-it-").toFile()
 
-    fun port(): Int = port
-    fun resultDir(): File = resultDir
+    /** Launch a peer running [scenarioClass]. The scenario's [TestScenario.scenePath] becomes the Godot main scene. */
+    fun launch(
+        scenarioClass: KClass<out TestScenario>,
+        role: Role,
+        peerName: String,
+        expectedClientCount: Int = 0,
+    ): PeerHandle {
+        val scenario = scenarioClass.java.getDeclaredConstructor()
+            .apply { isAccessible = true }
+            .newInstance()
+        val scenePath = scenario.scenePath
+        val scenarioFullyQualifiedClassName = scenarioClass.java.name
 
-    fun launch(scenario: String, role: String, peerId: String, clientCount: Int = 0): GodotPeerProcess {
-        val stdout = File(resultDir, "$peerId.out")
-        val stderr = File(resultDir, "$peerId.err")
+        val stdoutFile = File(resultDir, "$peerName.out")
+        val stderrFile = File(resultDir, "$peerName.err")
 
-        val cmd = mutableListOf(
-            godotBin,
-            "--headless",
-            "--path", projectDir.absolutePath,
-            "res://test_runner.tscn",
-            "--",
-            "--scenario", scenario,
-            "--role", role,
-            "--port", port.toString(),
-            "--peer-id", peerId,
-            "--result-dir", resultDir.absolutePath,
-        )
-        if (clientCount > 0) {
-            cmd += listOf("--client-count", clientCount.toString())
+        val command = buildList {
+            add(godotBinary)
+            add("--headless")
+            add("--path"); add(godotProjectDir.absolutePath)
+            add(scenePath)
+            add("--")
+            add("--scenario"); add(scenarioFullyQualifiedClassName)
+            add("--role"); add(role.name)
+            add("--port"); add(port.toString())
+            add("--peer-name"); add(peerName)
+            add("--result-dir"); add(resultDir.absolutePath)
+            if (expectedClientCount > 0) {
+                add("--expected-client-count"); add(expectedClientCount.toString())
+            }
         }
 
-        println("[orchestrator] launching $peerId: ${cmd.joinToString(" ")}")
+        println("[orchestrator] launching $peerName (${role.name}): ${command.joinToString(" ")}")
 
-        val pb = ProcessBuilder(cmd)
-            .redirectOutput(stdout)
-            .redirectError(stderr)
-            .directory(projectDir)
-        val process = pb.start()
-        val handle = GodotPeerProcess(peerId, role, process, stdout, stderr)
-        processes += handle
+        val process = ProcessBuilder(command)
+            .redirectOutput(stdoutFile)
+            .redirectError(stderrFile)
+            .directory(godotProjectDir)
+            .start()
+
+        val handle = PeerHandle(peerName, role.name, process, stdoutFile, stderrFile)
+        handles += handle
         return handle
     }
 
+    /**
+     * Force-kill a specific peer to simulate crash / network loss. Tries a graceful
+     * shutdown first ([gracefulShutdownTimeoutMs]), then `destroyForcibly`.
+     */
+    fun killPeer(handle: PeerHandle, gracefulShutdownTimeoutMs: Long = 2_000) {
+        if (!handle.process.isAlive) return
+        handle.process.destroy()
+        if (!handle.process.waitFor(gracefulShutdownTimeoutMs, TimeUnit.MILLISECONDS)) {
+            handle.process.destroyForcibly().waitFor(5, TimeUnit.SECONDS)
+        }
+    }
+
+    /** Wait for all launched peers to exit, force-killing any that overrun [timeoutSeconds]. */
     fun awaitAll(timeoutSeconds: Long): List<PeerResult> {
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
-        for (handle in processes) {
-            val remainingNs = (deadline - System.nanoTime()).coerceAtLeast(0)
-            val finished = handle.process.waitFor(remainingNs, TimeUnit.NANOSECONDS)
-            if (!finished) {
-                System.err.println("[orchestrator] ${handle.peerId} timed out, force-killing")
-                handle.process.destroyForcibly()
-                handle.process.waitFor(5, TimeUnit.SECONDS)
+        val deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
+        for (handle in handles) {
+            val remainingNanos = (deadlineNanos - System.nanoTime()).coerceAtLeast(0)
+            val finishedInTime = handle.process.waitFor(remainingNanos, TimeUnit.NANOSECONDS)
+            if (!finishedInTime) {
+                System.err.println("[orchestrator] ${handle.peerName} timed out, force-killing")
+                handle.process.destroyForcibly().waitFor(5, TimeUnit.SECONDS)
             }
         }
-        return processes.map { collect(it) }
+        return handles.map { collectResult(it) }
     }
 
     fun cleanup() {
-        for (handle in processes) {
+        for (handle in handles) {
             if (handle.process.isAlive) handle.process.destroyForcibly()
         }
     }
 
-    private fun collect(handle: GodotPeerProcess): PeerResult {
-        val resultFile = File(resultDir, "${handle.peerId}.json")
+    private fun collectResult(handle: PeerHandle): PeerResult {
+        val resultFile = File(resultDir, "${handle.peerName}.json")
         val stdout = handle.stdoutFile.takeIf { it.exists() }?.readText().orEmpty()
         val stderr = handle.stderrFile.takeIf { it.exists() }?.readText().orEmpty()
 
         if (!resultFile.exists()) {
             return PeerResult(
-                peerId = handle.peerId,
+                peerName = handle.peerName,
                 role = handle.role,
                 passed = false,
                 data = JsonObject(emptyMap()),
@@ -110,7 +133,7 @@ class ProcessOrchestrator(
         }
         val raw = Json.parseToJsonElement(resultFile.readText()).jsonObject
         return PeerResult(
-            peerId = raw["peerId"]!!.jsonPrimitive.content,
+            peerName = raw["peerName"]!!.jsonPrimitive.content,
             role = raw["role"]!!.jsonPrimitive.content,
             passed = raw["passed"]!!.jsonPrimitive.content.toBoolean(),
             data = raw["data"]?.jsonObject ?: JsonObject(emptyMap()),
@@ -122,13 +145,13 @@ class ProcessOrchestrator(
     }
 }
 
-fun renderFailure(results: List<PeerResult>): String = buildString {
+fun renderMultiPeerFailure(results: List<PeerResult>): String = buildString {
     appendLine("=== Multi-peer test failure ===")
-    for (r in results) {
-        appendLine("--- ${r.peerId} (${r.role}) passed=${r.passed} exit=${r.exitCode} ---")
-        if (r.error != null) appendLine("ERROR: ${r.error}")
-        appendLine("DATA: ${r.data}")
-        if (r.stdout.isNotBlank()) appendLine("STDOUT:\n${r.stdout.takeLast(4000)}")
-        if (r.stderr.isNotBlank()) appendLine("STDERR:\n${r.stderr.takeLast(4000)}")
+    for (result in results) {
+        appendLine("--- ${result.peerName} (${result.role}) passed=${result.passed} exit=${result.exitCode} ---")
+        if (result.error != null) appendLine("ERROR: ${result.error}")
+        appendLine("DATA: ${result.data}")
+        if (result.stdout.isNotBlank()) appendLine("STDOUT:\n${result.stdout.takeLast(4000)}")
+        if (result.stderr.isNotBlank()) appendLine("STDERR:\n${result.stderr.takeLast(4000)}")
     }
 }

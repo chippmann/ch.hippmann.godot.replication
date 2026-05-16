@@ -1,7 +1,7 @@
 # Bugs & TODOs
 
 Known issues in `replication/` and the integration-test harness. Severity is impact
-× likelihood-in-real-use. Status tracks whether an `replication-it` scenario covers it.
+× likelihood-in-real-use. Status tracks whether an `replication-integration-tests` scenario covers it.
 
 ---
 
@@ -51,30 +51,22 @@ property unchanged.
 
 ---
 
-### #4 `WithRemoteListeners` ready-handshake is fire-once and timing-fragile
+### #4 `WithRemoteListeners` ready-handshake is fire-once and timing-fragile — **FIXED**
 
-`RemoteListenerManager.notificationOnReadyForWithRemoteListeners` calls `notifyReady`
-exactly once when the node enters the tree. `notifyReady` registers the local listener
-and broadcasts `remoteReady(nodePath)` through the autoload. **If multiplayer isn't
-connected at that moment, the RPC silently goes nowhere.** Worse, the library never
-re-fires on `peer_connected` — so a peer that joins after a `Replicated` node was
-ready never learns it exists.
+`RemoteListenerManager.notificationOnReadyForWithRemoteListeners` used to call
+`notifyReady` exactly once on tree-entry. If multiplayer wasn't connected at that
+moment (the common case for scene-loaded Replicators), the broadcast went nowhere
+and any peer joining later silently never learned the node existed.
 
-Consequence: the consumer must connect multiplayer *before* adding any `Replicated` /
-`Synchronized` node. There's no error, just silent breakage.
+**Fix:** connect to `multiplayer.peerConnected` in `initListening` and re-emit
+`remoteReady` to each newly-connected peer specifically (via `rpcId`). Also added a
+dedup check in `authorityOnPeerSubscribeForWithRemoteListeners` since the now-
+symmetric handshake can fire twice for the same peer pair (each side independently
+re-emits on its peer_connected).
 
-**Fix:** connect to `multiplayer.peerConnected` in `initListening` (the disconnected
-side is already wired). On each new peer, replay the handshake: if authority, send
-`peerOnAuthorityReady` to the new peer; if peer and the new id is the server, send
-`authorityOnPeerSubscribe`. Alternatively, on `peer_connected`, just re-invoke
-`notifyReady`'s body for the new peer.
-
-Also worth doing: fail loudly (or queue + warn) if `notifyReady` runs with no
-multiplayer peer set.
-
-**Test status:** none. The current `SpawnScenario` is structured to dodge this bug
-(client connects before adding `Replicator`). After the fix, write a `LateAddScenario`
-that adds the `Replicator` *before* connecting and asserts it still ends up wired.
+**Test status:** covered by `SpawnTest` (Replicator already in the loaded scene
+before any multiplayer setup) and `LateJoinTest` (server spawns a managed child
+before any client connects; late client must observe via snapshot). Both green.
 
 ---
 
@@ -207,8 +199,8 @@ them entirely so consumers are forced to follow the README pattern. If kept, doc
 clearly that they're for `Node` only and a custom subclass is needed for
 `Node2D`/`Node3D`/`CharacterBody3D`/etc.
 
-**Test status:** discovered while writing `replication-it/SpawnScenario`; the scenario
-now uses a hand-rolled `ITReplicator`.
+**Test status:** discovered while writing `replication-integration-tests/SpawnScenario`; the scenario
+now uses a hand-rolled `IntegrationTestReplicator`.
 
 ---
 

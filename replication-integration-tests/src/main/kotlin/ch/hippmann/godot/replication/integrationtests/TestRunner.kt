@@ -1,4 +1,4 @@
-package ch.hippmann.godot.replication.it
+package ch.hippmann.godot.replication.integrationtests
 
 import godot.annotation.RegisterClass
 import godot.annotation.RegisterFunction
@@ -9,13 +9,21 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+/**
+ * Root script of every integration-test scene. Reads the test arguments Godot was
+ * launched with, instantiates the scenario class by FQCN, and runs `runAsServer` /
+ * `runAsClient` on it. Writes a JSON result file before quitting.
+ *
+ * The scene that hosts this script is responsible for declaring the Replicator (and
+ * any other test fixtures) — the scenario code does NOT build the scene graph.
+ */
 @RegisterClass
 class TestRunner : Node() {
     private lateinit var args: TestArgs
-    private lateinit var ctx: TestContext
+    private lateinit var context: TestContext
 
-    private val mainDispatcher = GodotMainDispatcher()
-    private val scope = CoroutineScope(SupervisorJob() + mainDispatcher)
+    private val mainThreadDispatcher = GodotMainDispatcher()
+    private val scope = CoroutineScope(SupervisorJob() + mainThreadDispatcher)
 
     @RegisterFunction
     override fun _ready() {
@@ -24,65 +32,67 @@ class TestRunner : Node() {
 
         args = try {
             TestArgs.parse(userArgs)
-        } catch (t: Throwable) {
-            System.err.println("[TestRunner] failed to parse args: ${t.message}")
+        } catch (parseFailure: Throwable) {
+            System.err.println("[TestRunner] failed to parse args: ${parseFailure.message}")
             getTree()?.quit(2)
             return
         }
 
-        ctx = TestContext(this, args)
+        context = TestContext(this, args)
 
         scope.launch {
             val scenario = try {
-                instantiateScenario(args.scenarioFqcn)
-            } catch (t: Throwable) {
-                fail("could not instantiate scenario ${args.scenarioFqcn}", t)
+                instantiateScenario(args.scenarioFullyQualifiedClassName)
+            } catch (instantiationFailure: Throwable) {
+                fail(
+                    "could not instantiate scenario ${args.scenarioFullyQualifiedClassName}",
+                    instantiationFailure,
+                )
                 return@launch
             }
 
             try {
                 when (args.role) {
-                    Role.SERVER -> scenario.runAsServer(ctx)
-                    Role.CLIENT -> scenario.runAsClient(ctx)
+                    Role.SERVER -> scenario.runAsServer(context)
+                    Role.CLIENT -> scenario.runAsClient(context)
                 }
                 pass()
-            } catch (t: Throwable) {
-                fail("scenario threw", t)
+            } catch (scenarioFailure: Throwable) {
+                fail("scenario threw", scenarioFailure)
             }
         }
     }
 
     @RegisterFunction
     override fun _process(delta: Double) {
-        mainDispatcher.drain()
+        mainThreadDispatcher.drain()
     }
 
-    private fun instantiateScenario(fqcn: String): TestScenario {
-        val cls = Class.forName(fqcn)
-        val ctor = cls.getDeclaredConstructor().apply { isAccessible = true }
-        return ctor.newInstance() as TestScenario
+    private fun instantiateScenario(fullyQualifiedClassName: String): TestScenario {
+        val scenarioClass = Class.forName(fullyQualifiedClassName)
+        val constructor = scenarioClass.getDeclaredConstructor().apply { isAccessible = true }
+        return constructor.newInstance() as TestScenario
     }
 
     private fun pass() {
-        println("[TestRunner] ${args.peerId} passed")
-        ctx.writeResult(passed = true, data = ctx.report())
+        println("[TestRunner] ${args.peerName} passed")
+        context.writeResult(passed = true)
         getTree()?.quit(0)
     }
 
-    private fun fail(message: String, t: Throwable) {
-        System.err.println("[TestRunner] ${args.peerId} failed: $message")
-        t.printStackTrace()
-        ctx.writeResult(
+    private fun fail(message: String, cause: Throwable) {
+        System.err.println("[TestRunner] ${args.peerName} failed: $message")
+        cause.printStackTrace()
+        context.writeResult(
             passed = false,
-            data = ctx.report(),
-            error = "$message: ${t.javaClass.name}: ${t.message}\n${t.stackTraceToString()}",
+            error = "$message: ${cause.javaClass.name}: ${cause.message}\n${cause.stackTraceToString()}",
         )
         getTree()?.quit(1)
     }
 
     private fun PackedStringArray.toList(): List<String> {
-        val out = mutableListOf<String>()
-        for (i in 0 until size) out += get(i)
-        return out
+        val list = mutableListOf<String>()
+        for (index in 0 until size) list += get(index)
+        return list
     }
 }

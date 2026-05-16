@@ -1,4 +1,4 @@
-package ch.hippmann.godot.replication.it
+package ch.hippmann.godot.replication.integrationtests
 
 import kotlinx.coroutines.CoroutineDispatcher
 import java.util.concurrent.ConcurrentLinkedQueue

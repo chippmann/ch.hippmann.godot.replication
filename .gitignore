@@ -44,7 +44,8 @@ bin/
 /.idea/AndroidProjectSystem.xml
 
 ### Godot Kotlin/JVM integration-test module ###
-/replication-it/.godot/
-/replication-it/jvm/
-/replication-it/gdj/
-/replication-it/src/main/resources/META-INF/services/
+/replication-integration-tests/.godot/
+/replication-integration-tests/jvm/
+/replication-integration-tests/gdj/
+/replication-integration-tests/src/main/resources/META-INF/services/
+.claude/

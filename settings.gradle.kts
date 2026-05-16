@@ -40,4 +40,4 @@ plugins {
 rootProject.name = "replication"
 
 include("replication")
-include("replication-it")
+include("replication-integration-tests")
