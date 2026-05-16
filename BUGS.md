@@ -116,14 +116,12 @@ explicit `refreshAuthorityState()` API surface.
 
 ---
 
-### #8 Ticker drift in `Synchronizer`
+### #8 Ticker drift in `Synchronizer` — **FIXED**
 
-`Synchronizer.kt:84-121` is `while (isActive) { enqueue; delay(tick) }`. Effective
-period is `tick + enqueue time + scheduling jitter`. At small ticks (16ms) this drifts.
-The commented-out `ticker(...)` block on lines 122-140 was closer to the right design.
-
-**Fix:** either commit to `delay` and accept drift (document it), or use a
-timestamp-corrected loop.
+The coroutine `while (isActive) { ...; delay(tick) }` loop was replaced by a
+main-thread accumulator in `performSynchronization`: each tick group tracks
+`nextTickTimeMs[tick]`, and fires + reschedules when wall-clock reaches it.
+Self-correcting — a frame pause doesn't cause a burst of catch-up ticks.
 
 ---
 
@@ -170,31 +168,29 @@ been removed and the test still passes, proving the catch-up fires.
 
 ---
 
-### #20 Godot/JVM aborts (SIGABRT) on process exit when Synchronizer tickers are active
+### #20 Godot/JVM aborts (SIGABRT) on process exit when Synchronizer tickers are active — **FIXED**
 
-Observed during test teardown: SIGABRT inside a `jni_CallVoidMethodA` →
-`SafepointSynchronize::block`. The JVM requests a safepoint (typically for
-GC or stop-the-world during shutdown) but a thread on `Dispatchers.Default`
-is still mid-JNI call (the ticker coroutine touching `thisNode.get()` and
-godot bindings) and can't reach safepoint, so the wait never resolves and
-the JVM aborts. On macOS the OS surfaces the resulting crash via a
-"Godot quit unexpectedly" dialog from `ReportCrash`.
+The Synchronizer ticker no longer uses `Dispatchers.Default` coroutines.
+It's now an accumulator in `performSynchronization` (which the consumer
+calls from `_process`), so all sync work runs on Godot's main thread.
+No more cross-thread JNI safepoint deadlock at shutdown.
 
-The crash is asynchronous to test outcomes — tests can pass cleanly and
-still leave a crash report behind. It does not affect test correctness but
-is noisy in development.
+`Synchronizer` also no longer implements `CoroutineScope` or carries a
+`SupervisorJob`, and the send/receive queues are gone — receives apply
+directly inside the @Rpc handler (already on the main thread courtesy
+of Godot's RPC dispatch).
 
-**Fix idea:** move the Synchronizer ticker off `Dispatchers.Default` onto a
-Godot-main-thread scheduler (e.g., a `_process` frame counter rather than
-`delay(tick)`), eliminating the cross-thread JNI hazard at shutdown.
+The 2 crashes still observed per full-suite run come from `ServerCrashTest`
+and `ClientCrashTest` which deliberately `destroyForcibly` peer processes —
+those crashes are the test's job and can't be avoided.
 
-**Workaround for development:**
+**Workaround if the macOS popup is still annoying anyway:**
 ```sh
 defaults write com.apple.CrashReporter DialogType none
 killall ReportCrash
 ```
-suppresses the dialog system-wide. Crashes still go to
-`~/Library/Logs/DiagnosticReports/` for forensic inspection.
+(macOS 26 may have moved dialog handling beyond this knob; verify by
+clearing `~/Library/Logs/DiagnosticReports/Godot*` and re-running.)
 
 ---
 

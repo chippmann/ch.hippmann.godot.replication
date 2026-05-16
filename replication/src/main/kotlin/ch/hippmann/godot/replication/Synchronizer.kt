@@ -2,30 +2,10 @@ package ch.hippmann.godot.replication
 
 import ch.hippmann.godot.utilities.logging.Log
 import godot.api.Node
-import godot.core.connect
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import java.util.Queue
-import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.coroutines.CoroutineContext
 import kotlin.reflect.KFunction2
 
 class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(),
-    WithNodeAccess by WithNodeAccessDelegate(), CoroutineScope {
-    override val coroutineContext: CoroutineContext = Dispatchers.Default + SupervisorJob() + object : CoroutineExceptionHandler {
-        override fun handleException(context: CoroutineContext, exception: Throwable) {
-            Log.err("An error occurred in a coroutine in ${this@Synchronizer::class.qualifiedName}", exception)
-        }
-
-        override val key: CoroutineContext.Key<*> = CoroutineExceptionHandler
-    }
+    WithNodeAccess by WithNodeAccessDelegate() {
 
     private var tickToConfigs: Map<Long, SyncConfigs> = mapOf()
     override var syncConfig: SyncConfigs = mutableMapOf()
@@ -38,16 +18,16 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
                 .groupBy { (tick, _) -> tick }
                 .mapValues { (_, values) ->
                     values
-                        .associate { value -> value.second }
+                        .associate { entry -> entry.second }
                         .filterValues { config -> config.syncOnTick }
                 }
         }
 
-    // ConcurrentLinkedQueue is required because the ticker coroutines run on
-    // Dispatchers.Default and produce send-side entries while performSynchronization
-    // drains both queues from Godot's main thread.
-    private val sendQueue: Queue<() -> Unit> = ConcurrentLinkedQueue()
-    private val receiveQueue: Queue<() -> Unit> = ConcurrentLinkedQueue()
+    // For each tick-group (keyed by tick interval in ms), the wall-clock time at which
+    // the group should next fire. Populated lazily on the first performSynchronization
+    // call after the node is ready. Drift-correcting: a long pause skips intermediate
+    // ticks rather than firing them all in a burst.
+    private val nextTickTimeMs: MutableMap<Long, Long> = mutableMapOf()
 
     override fun <T> T.initSynchronization() where T : Node, T : Synchronized {
         initNodeAccess()
@@ -58,66 +38,51 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
         // per-peer, so subsequent ticks skip the send. Replicator already does the
         // analogous thing for managed children via peerSpawnAllForReplicated.
         initListening(onPeerSubscribed = { peerId -> sendFullStateTo(peerId) })
-        this.treeExiting.connect {
-            // cancel all syncs when exiting tree
-            coroutineContext.cancelChildren()
-        }
 
-        // the delegate (this class) cannot access properties overridden by the implementer. So we cannot get its
-        // config. Thus, we manually assign it here to whatever the implementer defined
+        // the delegate (this class) cannot access properties overridden by the implementer.
+        // So we cannot get its config. Thus, we manually assign it here to whatever the
+        // implementer defined.
         this@Synchronizer.syncConfig = this.syncConfig
 
-        this.ready.connect(this, Synchronized::notificationOnReadyForSynchronized)
         Log.debug { "Synchronizer[${this.name}]: initialised" }
     }
 
+    /**
+     * Heart-beat called by the consumer from `_process`. Advances each tick group's
+     * accumulator, fires the group's RPC send when its interval has elapsed. Drains
+     * any queued sync state changes (none under the current main-thread design — kept
+     * for API compatibility / future use).
+     *
+     * Runs entirely on Godot's main thread; no `Dispatchers.Default` coroutines, no
+     * cross-thread queues. Eliminates the safepoint-deadlock-at-shutdown hazard the
+     * previous coroutine-based ticker exhibited (bug #20). Tick timing is
+     * accumulator-based and self-correcting — replaces the old `delay(tick)` drift
+     * (bug #8).
+     */
     override fun performSynchronization() {
-        while (receiveQueue.isNotEmpty()) {
-            try {
-                receiveQueue.poll()?.invoke()
-            } catch (t: Throwable) {
-                t.printStackTrace()
-            }
-        }
-        while (sendQueue.isNotEmpty()) {
-            try {
-                sendQueue.poll()?.invoke()
-            } catch (t: Throwable) {
-                t.printStackTrace()
+        ifAuthority {
+            val nowMs = System.nanoTime() / 1_000_000L
+            tickToConfigs.forEach { (tickMs, configs) ->
+                val scheduled = nextTickTimeMs[tickMs] ?: (nowMs + tickMs).also { nextTickTimeMs[tickMs] = it }
+                if (nowMs >= scheduled) {
+                    nextTickTimeMs[tickMs] = nowMs + tickMs
+                    fireTickGroup(configs)
+                }
             }
         }
     }
 
-    override fun notificationOnReadyForSynchronized() {
-        ifAuthority {
-            tickToConfigs.forEach { (tick, configs) ->
-                launch {
-                    while (isActive) {
-                        sendQueue.add {
-                            val node = thisNode.get() ?: run {
-                                // `this` here is the Synchronizer's CoroutineScope, NOT just
-                                // the launching coroutine — so this cancels EVERY tick-group
-                                // launch, intentional once the host node is gone (we have
-                                // nothing left to sync) but worth being explicit about.
-                                this.cancel()
-                                return@add
-                            }
-                            configs
-                                .filterValues { syncConfig -> syncConfig.shouldSendUpdate() }
-                                .forEach { (fqName, syncConfig) ->
-                                    val syncData = syncConfig.serializeSyncData()
-                                    Log.debug { "Synchronizer[${this@ifAuthority.name}]: sending sync data: $syncData for property: $fqName to peers" }
-                                    val rpcFunction = rpcFunctionFor(syncConfig)
-                                    withRemoteListeners { peerId: Long ->
-                                        node.rpcId(peerId, rpcFunction, fqName, syncData)
-                                    }
-                                }
-                        }
-                        delay(tick)
-                    }
+    private fun Node.fireTickGroup(configs: SyncConfigs) {
+        configs
+            .filterValues { syncConfig -> syncConfig.shouldSendUpdate() }
+            .forEach { (fqName, syncConfig) ->
+                val syncData = syncConfig.serializeSyncData()
+                Log.debug { "Synchronizer[${this.name}]: sending sync data: $syncData for property: $fqName to peers" }
+                val rpcFunction = rpcFunctionFor(syncConfig)
+                withRemoteListeners { peerId: Long ->
+                    rpcId(peerId, rpcFunction, fqName, syncData)
                 }
             }
-        }
     }
 
     /**
@@ -156,10 +121,18 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
             }
         }
 
+    // notificationOnReadyForSynchronized used to start the ticker coroutines under the
+    // old design. With main-thread accumulator timing nothing is needed here; the
+    // method survives only because the interface requires the @RegisterFunction entry.
+    override fun notificationOnReadyForSynchronized() {
+        // intentional no-op — see performSynchronization()
+    }
+
     private fun replicate(fqName: String, data: SerializedData) {
         // Authority verification has to happen synchronously inside the @Rpc handler:
         // multiplayer.getRemoteSenderId() is only valid while the RPC is being
-        // dispatched, not later in the queued continuation.
+        // dispatched, not later. Also: Godot dispatches RPC handlers on its main
+        // thread, so applying the value is safe to do directly — no queue needed.
         val node = thisNode.get() ?: return
         val multiplayer = node.multiplayer ?: return
         val senderId = multiplayer.getRemoteSenderId()
@@ -168,11 +141,9 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
             Log.warn { "Synchronizer[${node.name}]: rejecting sync RPC for '$fqName' from peer $senderId (authority is $authorityId)" }
             return
         }
-        receiveQueue.add {
-            ifPeer {
-                Log.debug { "Synchronizer[${this.name}]: received sync data: $data for property: $fqName" }
-                syncConfig[fqName]?.applySyncData(data)
-            }
+        ifPeer {
+            Log.debug { "Synchronizer[${this.name}]: received sync data: $data for property: $fqName" }
+            syncConfig[fqName]?.applySyncData(data)
         }
     }
 
