@@ -47,6 +47,41 @@ class TestRunner : Node() {
         }
     }
 
+    /**
+     * Build a [SyncConfigs] entry that also exercises the `syncOnSpawn` and
+     * `syncOnTick` toggles. Used by `SyncConfigDslTest` to pin every DSL →
+     * `SyncConfig` channel of propagation.
+     */
+    fun buildProbeSyncConfigFull(
+        method: SyncConfig.SyncMethod,
+        channel: SyncConfig.SyncChannel,
+        spawn: Boolean,
+        tick: Boolean,
+    ): SyncConfigs = syncConfig {
+        property(::probeIntValue) {
+            syncMethod = method
+            syncChannel = channel
+            syncOnSpawn = spawn
+            syncOnTick = tick
+        }
+    }
+
+    /** Probe target for the custom-serializer DSL surface. */
+    var probeLabel: String = ""
+
+    /**
+     * Build a [SyncConfigs] entry that overrides the serializer/deserializer
+     * lambdas. The encoder wraps the value with a marker prefix so the test can
+     * see — by inspecting the wire string — that the custom path actually ran.
+     */
+    fun buildCustomSerializerSyncConfig(): SyncConfigs = syncConfig {
+        property(
+            property = ::probeLabel,
+            serializer = { "__CUSTOM__:$this" },
+            deserializer = { it.removePrefix("__CUSTOM__:") },
+        )
+    }
+
     private val mainThreadDispatcher = GodotMainDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + mainThreadDispatcher)
 

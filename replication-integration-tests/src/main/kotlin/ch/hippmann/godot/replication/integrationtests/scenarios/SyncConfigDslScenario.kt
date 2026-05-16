@@ -35,6 +35,26 @@ class SyncConfigDslScenario : TestScenario {
             context.put("${label}_method", produced.syncMethod.name)
             context.put("${label}_channel", produced.syncChannel.name)
         }
+
+        // Toggle cases: verify syncOnSpawn / syncOnTick both flow through the DSL too.
+        val toggleCases = listOf(
+            "spawn_on_tick_on" to (true to true),
+            "spawn_on_tick_off" to (true to false),
+            "spawn_off_tick_on" to (false to true),
+            "spawn_off_tick_off" to (false to false),
+        )
+        for ((label, spawnAndTick) in toggleCases) {
+            val (spawn, tick) = spawnAndTick
+            val configs = runner.buildProbeSyncConfigFull(
+                method = SyncConfig.SyncMethod.RELIABLE,
+                channel = SyncConfig.SyncChannel.CHANNEL_0,
+                spawn = spawn,
+                tick = tick,
+            )
+            val produced = configs.values.single()
+            context.put("${label}_spawn", produced.syncOnSpawn)
+            context.put("${label}_tick", produced.syncOnTick)
+        }
     }
 
     override suspend fun runAsClient(context: TestContext) {

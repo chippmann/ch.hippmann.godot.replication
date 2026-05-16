@@ -38,6 +38,22 @@ class SyncConfigDslTest : FunSpec({
                         renderMultiPeerFailure(results),
                 )
             }
+
+            val toggleExpectations = listOf(
+                "spawn_on_tick_on" to (true to true),
+                "spawn_on_tick_off" to (true to false),
+                "spawn_off_tick_on" to (false to true),
+                "spawn_off_tick_off" to (false to false),
+            )
+            for ((label, expected) in toggleExpectations) {
+                val (expectedSpawn, expectedTick) = expected
+                val spawn = solo.data["${label}_spawn"]?.jsonPrimitive?.content?.toBoolean()
+                val tick = solo.data["${label}_tick"]?.jsonPrimitive?.content?.toBoolean()
+                if (spawn != expectedSpawn || tick != expectedTick) fail(
+                    "case $label: expected (spawn=$expectedSpawn, tick=$expectedTick) got (spawn=$spawn, tick=$tick)\n" +
+                        renderMultiPeerFailure(results),
+                )
+            }
         } finally {
             orchestrator.cleanup()
         }
