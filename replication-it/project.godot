@@ -1,0 +1,15 @@
+; Engine configuration file.
+; Generated for integration tests — not edited via the Godot editor.
+
+config_version=5
+
+[application]
+
+config/name="replication-it"
+run/main_scene="res://test_runner.tscn"
+config/features=PackedStringArray("4.4")
+
+[autoload]
+
+RemoteListenerReadyRedirector="*res://gdj/dependencies/replication/ch/hippmann/godot/replication/autoload/ReplRemoteListenerReadyRedirector.gdj"
+DispatcherSingleton="*res://gdj/dependencies/utilities/ch/hippmann/godot/utilities/coroutines/UTILDispatcherSingleton.gdj"

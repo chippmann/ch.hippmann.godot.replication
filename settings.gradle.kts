@@ -6,6 +6,12 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+
+    resolutionStrategy.eachPlugin {
+        if (requested.id.id == "com.utopia-rise.godot-kotlin-jvm") {
+            useModule("com.utopia-rise:godot-gradle-plugin:${requested.version}")
+        }
+    }
 }
 
 dependencyResolutionManagement {
@@ -24,3 +30,4 @@ plugins {
 rootProject.name = "replication"
 
 include("replication")
+include("replication-it")

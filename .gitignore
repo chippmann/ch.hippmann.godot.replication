@@ -42,3 +42,9 @@ bin/
 .DS_Store
 /replication/jvm/
 /.idea/AndroidProjectSystem.xml
+
+### Godot Kotlin/JVM integration-test module ###
+/replication-it/.godot/
+/replication-it/jvm/
+/replication-it/gdj/
+/replication-it/src/main/resources/META-INF/services/
