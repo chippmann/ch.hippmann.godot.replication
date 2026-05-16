@@ -34,20 +34,19 @@ test (timing-dependent corruption).
 
 ---
 
-### #3 No authority verification on `Synchronized` sync RPCs
+### #3 No authority verification on `Synchronized` sync RPCs — **FIXED**
 
-`Synchronized.kt:21-67` declares all `replicateForSynchronized*` as
-`@Rpc(rpcMode = RpcMode.ANY)`. Handlers check `ifPeer { applySyncData(...) }` but never
-verify the **sender** is the authority of that node. Any peer in the session can push
-forged property values to any other peer's `Synchronized` node.
+All `replicateForSynchronized*` are still `@Rpc(rpcMode = RpcMode.ANY)` because
+godot-kotlin-jvm requires this for cross-peer RPC, but `Synchronizer.replicate(...)`
+now verifies `multiplayer.getRemoteSenderId()` matches `node.getMultiplayerAuthority()`
+synchronously inside the @Rpc handler (before the receive queue is enqueued — the
+sender ID is only valid while the RPC is being dispatched). Forged calls from
+non-authority peers log a warning and are dropped.
 
-**Fix:** in each handler, compare `multiplayer.getRemoteSenderId()` to
-`getMultiplayerAuthority()` before applying. Or split into an authority-only path with
-a separate "any-can-write" opt-in for client-authority property patterns.
-
-**Test status:** none. Integration scenario `ForgedSyncScenario` (planned): peer B
-directly invokes `replicateForSynchronizedReliable` on peer C's node, assert C's
-property unchanged.
+**Test status:** `ForgedSyncTest` — 1 server + 2 clients; each client legitimately
+receives `x=42` from the server, then sends an unsolicited reliable RPC to the
+other client with `x=999`. Recipient's local `customPosition.x` must remain 42.
+Green.
 
 ---
 
@@ -70,18 +69,16 @@ before any client connects; late client must observe via snapshot). Both green.
 
 ---
 
-### #5 `RemoteListenerReadyRedirector.listeners` map leaks
+### #5 `RemoteListenerReadyRedirector.listeners` map leaks — **FIXED**
 
-`RemoteListenerReadyRedirector.kt:16` is a process-wide `MutableMap<String, ...>`. A
-companion `deregister()` exists (line 31) but nothing calls it. Each `Replicated` /
-`Synchronized` node added during a session leaves an entry — and the closure it stores
-holds references that can keep nodes alive across scene transitions.
+`notificationOnExitingTreeForWithRemoteListeners` now unconditionally calls
+`deregister()` so the autoload's static `listeners` map drops its entry when the
+node leaves the tree. Added a public `listenerCount` accessor on the autoload's
+companion for diagnostic/test access.
 
-**Fix:** call `deregister()` from
-`RemoteListenerManager.notificationOnExitingTreeForWithRemoteListeners` (line 69).
-
-**Test status:** none. Scenario idea: add/remove N `Replicator`s, then reflect on the
-autoload's `listeners.size` — should drop back to baseline.
+**Test status:** `ListenerLeakTest` — single peer, no multiplayer; adds 5
+Replicators dynamically, observes `listenerCount` reach baseline+5, queueFrees
+them, observes return to baseline. Green.
 
 ---
 

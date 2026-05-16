@@ -144,6 +144,17 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
     }
 
     private fun replicate(fqName: String, data: SerializedData) {
+        // Authority verification has to happen synchronously inside the @Rpc handler:
+        // multiplayer.getRemoteSenderId() is only valid while the RPC is being
+        // dispatched, not later in the queued continuation.
+        val node = thisNode.get() ?: return
+        val multiplayer = node.multiplayer ?: return
+        val senderId = multiplayer.getRemoteSenderId()
+        val authorityId = node.getMultiplayerAuthority()
+        if (senderId != authorityId) {
+            Log.warn { "Synchronizer[${node.name}]: rejecting sync RPC for '$fqName' from peer $senderId (authority is $authorityId)" }
+            return
+        }
         receiveQueue.add {
             ifPeer {
                 Log.debug { "Synchronizer[${this.name}]: received sync data: $data for property: $fqName" }
