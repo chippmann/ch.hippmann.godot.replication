@@ -1,15 +1,19 @@
 package ch.hippmann.godot.replication.it
 
 import godot.api.ENetMultiplayerPeer
+import godot.api.MultiplayerAPI
 import godot.api.Node
 import godot.api.SceneTree
-import godot.core.connect
+import godot.core.Error
+import godot.core.asCallable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import java.io.File
 
@@ -18,21 +22,21 @@ class TestContext(
     val args: TestArgs,
 ) {
     val tree: SceneTree get() = runner.getTree()!!
-    val multiplayer get() = runner.multiplayer!!
+    val multiplayer: MultiplayerAPI get() = runner.multiplayer!!
 
-    private val collected: MutableMap<String, kotlinx.serialization.json.JsonElement> = mutableMapOf()
+    private val collected: MutableMap<String, JsonElement> = mutableMapOf()
 
     fun startServer() {
         val peer = ENetMultiplayerPeer()
-        val err = peer.createServer(args.port, maxClients = args.clientCount.coerceAtLeast(1))
-        check(err.value == 0L) { "createServer failed: $err" }
+        val err = peer.createServer(port = args.port, maxClients = args.clientCount.coerceAtLeast(1))
+        check(err == Error.OK) { "createServer failed: $err" }
         multiplayer.multiplayerPeer = peer
     }
 
     fun connectToServer(host: String = "127.0.0.1") {
         val peer = ENetMultiplayerPeer()
-        val err = peer.createClient(host, args.port)
-        check(err.value == 0L) { "createClient failed: $err" }
+        val err = peer.createClient(address = host, port = args.port)
+        check(err == Error.OK) { "createClient failed: $err" }
         multiplayer.multiplayerPeer = peer
     }
 
@@ -40,11 +44,11 @@ class TestContext(
         if (count == 0) return
         val deferred = CompletableDeferred<Unit>()
         var seen = 0
-        val handler: (Long) -> Unit = {
+        val handler: (Long) -> Unit = { _ ->
             seen += 1
             if (seen >= count && !deferred.isCompleted) deferred.complete(Unit)
         }
-        multiplayer.peerConnected.connect(handler)
+        multiplayer.peerConnected.connect(handler.asCallable {})
         try {
             withTimeout(timeoutMs) { deferred.await() }
         } catch (t: TimeoutCancellationException) {
@@ -54,12 +58,14 @@ class TestContext(
 
     suspend fun awaitServerConnected(timeoutMs: Long = 10_000) {
         val deferred = CompletableDeferred<Unit>()
-        multiplayer.connectedToServer.connect {
+        val onConnected: () -> Unit = {
             if (!deferred.isCompleted) deferred.complete(Unit)
         }
-        multiplayer.connectionFailed.connect {
+        val onFailed: () -> Unit = {
             if (!deferred.isCompleted) deferred.completeExceptionally(IllegalStateException("connection_failed"))
         }
+        multiplayer.connectedToServer.connect(onConnected.asCallable {})
+        multiplayer.connectionFailed.connect(onFailed.asCallable {})
         try {
             withTimeout(timeoutMs) { deferred.await() }
         } catch (t: TimeoutCancellationException) {
@@ -77,14 +83,14 @@ class TestContext(
         }
     }
 
-    fun put(key: String, value: kotlinx.serialization.json.JsonElement) {
+    fun put(key: String, value: JsonElement) {
         collected[key] = value
     }
 
-    fun put(key: String, value: String) = put(key, kotlinx.serialization.json.JsonPrimitive(value))
-    fun put(key: String, value: Int) = put(key, kotlinx.serialization.json.JsonPrimitive(value))
-    fun put(key: String, value: Long) = put(key, kotlinx.serialization.json.JsonPrimitive(value))
-    fun put(key: String, value: Boolean) = put(key, kotlinx.serialization.json.JsonPrimitive(value))
+    fun put(key: String, value: String) = put(key, JsonPrimitive(value))
+    fun put(key: String, value: Int) = put(key, JsonPrimitive(value))
+    fun put(key: String, value: Long) = put(key, JsonPrimitive(value))
+    fun put(key: String, value: Boolean) = put(key, JsonPrimitive(value))
 
     fun report(block: JsonObjectBuilder.() -> Unit = {}): JsonObject = buildJsonObject {
         collected.forEach { (k, v) -> put(k, v) }
@@ -93,12 +99,12 @@ class TestContext(
 
     fun writeResult(passed: Boolean, data: JsonObject, error: String? = null) {
         val payload = buildJsonObject {
-            put("peerId", kotlinx.serialization.json.JsonPrimitive(args.peerId))
-            put("role", kotlinx.serialization.json.JsonPrimitive(args.role.name))
-            put("scenario", kotlinx.serialization.json.JsonPrimitive(args.scenarioFqcn))
-            put("passed", kotlinx.serialization.json.JsonPrimitive(passed))
+            put("peerId", JsonPrimitive(args.peerId))
+            put("role", JsonPrimitive(args.role.name))
+            put("scenario", JsonPrimitive(args.scenarioFqcn))
+            put("passed", JsonPrimitive(passed))
             put("data", data)
-            if (error != null) put("error", kotlinx.serialization.json.JsonPrimitive(error))
+            if (error != null) put("error", JsonPrimitive(error))
         }
         val dir = File(args.resultDir).also { it.mkdirs() }
         File(dir, "${args.peerId}.json").writeText(payload.toString())

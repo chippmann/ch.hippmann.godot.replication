@@ -28,7 +28,7 @@ class SpawnScenario : TestScenario {
         ctx.put("ok", true)
 
         // Hold the server up long enough for clients to observe & report.
-        ctx.pollUntil(timeoutMs = 10_000) { ctx.multiplayer.getPeers().size() == 0L }
+        ctx.pollUntil(timeoutMs = 10_000) { ctx.multiplayer.getPeers().size == 0 }
     }
 
     override suspend fun runAsClient(ctx: TestContext) {

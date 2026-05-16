@@ -78,7 +78,7 @@ class TestRunner : Node() {
 
     private fun PackedStringArray.toList(): List<String> {
         val out = mutableListOf<String>()
-        for (i in 0 until size()) out += this[i]
+        for (i in 0 until size) out += get(i)
         return out
     }
 }

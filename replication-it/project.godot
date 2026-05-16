@@ -11,5 +11,5 @@ config/features=PackedStringArray("4.4")
 
 [autoload]
 
-RemoteListenerReadyRedirector="*res://gdj/dependencies/replication/ch/hippmann/godot/replication/autoload/ReplRemoteListenerReadyRedirector.gdj"
-DispatcherSingleton="*res://gdj/dependencies/utilities/ch/hippmann/godot/utilities/coroutines/UTILDispatcherSingleton.gdj"
+RemoteListenerReadyRedirector="*res://gdj/ch/hippmann/godot/replication/autoload/REPLRemoteListenerReadyRedirector.gdj"
+DispatcherSingleton="*res://gdj/ch/hippmann/godot/utilities/coroutines/UTILDispatcherSingleton.gdj"

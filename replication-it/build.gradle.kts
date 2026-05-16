@@ -24,6 +24,36 @@ kotlin {
     jvmToolchain(libs.versions.jvmToolchainVersion.get().toInt())
 }
 
+// The godot-kotlin-jvm KSP processor generates a godot.Entry class for every Kotlin source
+// set. We only want it for `main` (which gets loaded into Godot). The test source set is
+// pure JVM Kotest code that runs OUTSIDE Godot, so disable the KSP step there.
+tasks.matching { it.name == "kspTestKotlin" }.configureEach {
+    enabled = false
+}
+
+// The plugin writes dependency-supplied .gdj files under gdj/dependencies/<libProjectName>/...
+// but godot-jvm resolves @RegisterClass instances by canonical package path (gdj/<package>/...),
+// so we mirror each dependency tree up one level. Idempotent — safe to re-run.
+val flattenDependencyGdj by tasks.registering {
+    val gdjRoot = projectDir.resolve("gdj")
+    val depRoot = gdjRoot.resolve("dependencies")
+    doLast {
+        if (!depRoot.exists()) return@doLast
+        depRoot.listFiles()?.filter { it.isDirectory }?.forEach { libDir ->
+            libDir.walkTopDown().filter { it.isFile && it.extension == "gdj" }.forEach { src ->
+                val rel = src.relativeTo(libDir)
+                val dst = gdjRoot.resolve(rel)
+                dst.parentFile.mkdirs()
+                src.copyTo(dst, overwrite = true)
+            }
+        }
+    }
+}
+
+tasks.matching { it.name == "copyJars" }.configureEach {
+    finalizedBy(flattenDependencyGdj)
+}
+
 tasks.test {
     useJUnitPlatform()
 
