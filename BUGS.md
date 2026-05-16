@@ -19,16 +19,12 @@ produced `SyncConfig.syncMethod` and `SyncConfig.syncChannel` match the input. G
 
 ---
 
-### #2 `sendQueue` / `receiveQueue` in `Synchronizer` are not thread-safe
+### #2 `sendQueue` / `receiveQueue` in `Synchronizer` are not thread-safe — **FIXED**
 
-`Synchronizer.kt:45-46` uses raw `LinkedList<() -> Unit>`. `sendQueue.add` runs from
-coroutines on `Dispatchers.Default`; `sendQueue.poll` runs from Godot's main thread in
-`performSynchronization()`. Concurrent `add`/`poll` corrupts `LinkedList` internals.
-
-**Fix:** `ConcurrentLinkedQueue` for both.
-
-**Test status:** none. Easier to reproduce with a JVM stress test than an integration
-test (timing-dependent corruption).
+`Synchronizer.kt:45-46` switched to `ConcurrentLinkedQueue<() -> Unit>` for both
+queues. `FrameSyncTest` exercises this path under per-tick pressure but does not
+specifically stress for races; deterministic reproduction is hard without a
+dedicated JVM-side stress test.
 
 ---
 
@@ -132,41 +128,33 @@ snapshot side-by-side.
 
 ---
 
-### #10 `Replicator.spawnNode` doesn't guard duplicate names
+### #10 `Replicator.spawnNode` doesn't guard duplicate names — **FIXED**
 
-`Replicator.kt:99-110` adds the spawned node without checking. If the spawn-on-add and
-spawn-all-on-subscribe RPCs race for the same node (a fast late-joiner), Godot will
-silently rename the duplicate. The later `peerDespawnForReplicated` (which looks up by
-name) won't find one of them.
-
-**Fix:** check for an existing child of the same name before instantiating.
+`spawnNode` now early-returns if `getNodeOrNull(spawnNodeData.nodeName) != null` —
+so if the spawn-on-add and spawn-all-on-subscribe RPCs both fire for the same
+managed child (race on a fast late-joiner), the second handler is a no-op rather
+than silently letting Godot rename the duplicate.
 
 ---
 
-### #11 RpcMode defaults are inconsistent / implicit
+### #11 RpcMode defaults are inconsistent / implicit — **FIXED**
 
-`Replicated.kt` uses bare `@Rpc` for spawn/despawn (relying on godot-kotlin-jvm's
-default — presumably `AUTHORITY`). `WithRemoteListeners.kt` and `Synchronized.kt` are
-explicit with `RpcMode.ANY`. If godot-kotlin-jvm ever changes the default, the
-silent contract changes for the bare ones.
-
-**Fix:** make `RpcMode` explicit on every `@Rpc` in the library.
+`Replicated.kt` now uses `@Rpc(rpcMode = RpcMode.AUTHORITY)` explicitly on all
+three spawn/despawn entry points. Other interfaces were already explicit.
 
 ---
 
 ## Small / cosmetic
 
-### #12 `StringNameSerializer` descriptor element is named `"nodePath"`
+### #12 `StringNameSerializer` descriptor element is named `"nodePath"` — **FIXED**
 
-`StringNameSerializer.kt:14` — copy-paste from `NodePathSerializer`. Rename to
-`"stringName"`.
+Renamed to `"stringName"`.
 
 ---
 
-### #13 Dead commented-out code
+### #13 Dead commented-out code — **FIXED**
 
-`Synchronizer.kt:122-140` and `RemoteListenerManager.kt:59-67` have substantial blocks
-from earlier implementations. Delete; git has them.
+`Synchronizer.kt:122-140` and `RemoteListenerManager.kt:59-67` deleted.
 
 ---
 
@@ -179,10 +167,11 @@ a one-line comment so a reader doesn't read it the other way.
 
 ---
 
-### #15 Serializer instantiated per call
+### #15 Serializer instantiated per call — **FIXED**
 
-`serializer/serializer.kt:51-91` does `json.encodeToString(NodePathSerializer(), ...)`
-on every property tick. Hoist the stateless serializers to `val`s or `object`s.
+Hoisted all 18 KSerializer instances to `@PublishedApi internal val`s at the top
+of `serializer/serializer.kt`. The inline `serialize`/`deserialize` bodies now
+reference shared instances instead of allocating a fresh one per tick.
 
 ---
 
@@ -212,7 +201,9 @@ Either parametrize, or document the limitation.
 
 ---
 
-### #18 `peerDespawnForReplicated` allocates unnecessarily
+### #18 `peerDespawnForReplicated` allocates unnecessarily — **partial**
 
-`Replicator.kt:95`: `getNodeAs<Node>(name.toString())` — the `toString()` round-trip on
-every despawn is wasteful. Use `getNodeOrNull(NodePath(name))` or iterate children.
+Changed `getNodeAs<Node>(name.toString())` to `getNodeOrNull(name.toString())` —
+drops the unchecked-cast wrapper but the `name.toString()` is still required
+because `NodePath` has no `StringName`-direct constructor in this godot-kotlin-jvm
+version. Worth revisiting if a constructor is added upstream.

@@ -46,48 +46,69 @@ internal val json = Json {
     ignoreUnknownKeys = false
 }
 
+// Stateless serializers; hoisted as `@PublishedApi internal val`s so the inline
+// serialize()/deserialize() bodies don't allocate a fresh instance per property tick.
+@PublishedApi internal val nodePathSerializer = NodePathSerializer()
+@PublishedApi internal val stringNameSerializer = StringNameSerializer()
+@PublishedApi internal val aabbSerializer = AABBSerializer()
+@PublishedApi internal val basisSerializer = BasisSerializer()
+@PublishedApi internal val colorSerializer = ColorSerializer()
+@PublishedApi internal val planeSerializer = PlaneSerializer()
+@PublishedApi internal val projectionSerializer = ProjectionSerializer()
+@PublishedApi internal val quaternionSerializer = QuaternionSerializer()
+@PublishedApi internal val rect2iSerializer = Rect2iSerializer()
+@PublishedApi internal val rect2Serializer = Rect2Serializer()
+@PublishedApi internal val transform2DSerializer = Transform2DSerializer()
+@PublishedApi internal val transform3DSerializer = Transform3DSerializer()
+@PublishedApi internal val vector2iSerializer = Vector2iSerializer()
+@PublishedApi internal val vector2Serializer = Vector2Serializer()
+@PublishedApi internal val vector3iSerializer = Vector3iSerializer()
+@PublishedApi internal val vector3Serializer = Vector3Serializer()
+@PublishedApi internal val vector4iSerializer = Vector4iSerializer()
+@PublishedApi internal val vector4Serializer = Vector4Serializer()
+
 @PublishedApi
 internal inline fun <reified T> T.serialize(): SerializedData = when (T::class) {
-    NodePath::class -> json.encodeToString(NodePathSerializer(), this as NodePath)
-    StringName::class -> json.encodeToString(StringNameSerializer(), this as StringName)
-    AABB::class -> json.encodeToString(AABBSerializer(), this as AABB)
-    Basis::class -> json.encodeToString(BasisSerializer(), this as Basis)
-    Color::class -> json.encodeToString(ColorSerializer(), this as Color)
-    Plane::class -> json.encodeToString(PlaneSerializer(), this as Plane)
-    Projection::class -> json.encodeToString(ProjectionSerializer(), this as Projection)
-    Quaternion::class -> json.encodeToString(QuaternionSerializer(), this as Quaternion)
-    Rect2i::class -> json.encodeToString(Rect2iSerializer(), this as Rect2i)
-    Rect2::class -> json.encodeToString(Rect2Serializer(), this as Rect2)
-    Transform2D::class -> json.encodeToString(Transform2DSerializer(), this as Transform2D)
-    Transform3D::class -> json.encodeToString(Transform3DSerializer(), this as Transform3D)
-    Vector2i::class -> json.encodeToString(Vector2iSerializer(), this as Vector2i)
-    Vector2::class -> json.encodeToString(Vector2Serializer(), this as Vector2)
-    Vector3i::class -> json.encodeToString(Vector3iSerializer(), this as Vector3i)
-    Vector3::class -> json.encodeToString(Vector3Serializer(), this as Vector3)
-    Vector4i::class -> json.encodeToString(Vector4iSerializer(), this as Vector4i)
-    Vector4::class -> json.encodeToString(Vector4Serializer(), this as Vector4)
+    NodePath::class -> json.encodeToString(nodePathSerializer, this as NodePath)
+    StringName::class -> json.encodeToString(stringNameSerializer, this as StringName)
+    AABB::class -> json.encodeToString(aabbSerializer, this as AABB)
+    Basis::class -> json.encodeToString(basisSerializer, this as Basis)
+    Color::class -> json.encodeToString(colorSerializer, this as Color)
+    Plane::class -> json.encodeToString(planeSerializer, this as Plane)
+    Projection::class -> json.encodeToString(projectionSerializer, this as Projection)
+    Quaternion::class -> json.encodeToString(quaternionSerializer, this as Quaternion)
+    Rect2i::class -> json.encodeToString(rect2iSerializer, this as Rect2i)
+    Rect2::class -> json.encodeToString(rect2Serializer, this as Rect2)
+    Transform2D::class -> json.encodeToString(transform2DSerializer, this as Transform2D)
+    Transform3D::class -> json.encodeToString(transform3DSerializer, this as Transform3D)
+    Vector2i::class -> json.encodeToString(vector2iSerializer, this as Vector2i)
+    Vector2::class -> json.encodeToString(vector2Serializer, this as Vector2)
+    Vector3i::class -> json.encodeToString(vector3iSerializer, this as Vector3i)
+    Vector3::class -> json.encodeToString(vector3Serializer, this as Vector3)
+    Vector4i::class -> json.encodeToString(vector4iSerializer, this as Vector4i)
+    Vector4::class -> json.encodeToString(vector4Serializer, this as Vector4)
     else -> json.encodeToString<T>(this)
 }
 
 @PublishedApi
 internal inline fun <reified T> SerializedData.deserialize(): T = when (T::class) {
-    NodePath::class -> json.decodeFromString(NodePathSerializer(), this) as T
-    StringName::class -> json.decodeFromString(StringNameSerializer(), this) as T
-    AABB::class -> json.decodeFromString(AABBSerializer(), this) as T
-    Basis::class -> json.decodeFromString(BasisSerializer(), this) as T
-    Color::class -> json.decodeFromString(ColorSerializer(), this) as T
-    Plane::class -> json.decodeFromString(PlaneSerializer(), this) as T
-    Projection::class -> json.decodeFromString(ProjectionSerializer(), this) as T
-    Quaternion::class -> json.decodeFromString(QuaternionSerializer(), this) as T
-    Rect2i::class -> json.decodeFromString(Rect2iSerializer(), this) as T
-    Rect2::class -> json.decodeFromString(Rect2Serializer(), this) as T
-    Transform2D::class -> json.decodeFromString(Transform2DSerializer(), this) as T
-    Transform3D::class -> json.decodeFromString(Transform3DSerializer(), this) as T
-    Vector2i::class -> json.decodeFromString(Vector2iSerializer(), this) as T
-    Vector2::class -> json.decodeFromString(Vector2Serializer(), this) as T
-    Vector3i::class -> json.decodeFromString(Vector3iSerializer(), this) as T
-    Vector3::class -> json.decodeFromString(Vector3Serializer(), this) as T
-    Vector4i::class -> json.decodeFromString(Vector4iSerializer(), this) as T
-    Vector4::class -> json.decodeFromString(Vector4Serializer(), this) as T
+    NodePath::class -> json.decodeFromString(nodePathSerializer, this) as T
+    StringName::class -> json.decodeFromString(stringNameSerializer, this) as T
+    AABB::class -> json.decodeFromString(aabbSerializer, this) as T
+    Basis::class -> json.decodeFromString(basisSerializer, this) as T
+    Color::class -> json.decodeFromString(colorSerializer, this) as T
+    Plane::class -> json.decodeFromString(planeSerializer, this) as T
+    Projection::class -> json.decodeFromString(projectionSerializer, this) as T
+    Quaternion::class -> json.decodeFromString(quaternionSerializer, this) as T
+    Rect2i::class -> json.decodeFromString(rect2iSerializer, this) as T
+    Rect2::class -> json.decodeFromString(rect2Serializer, this) as T
+    Transform2D::class -> json.decodeFromString(transform2DSerializer, this) as T
+    Transform3D::class -> json.decodeFromString(transform3DSerializer, this) as T
+    Vector2i::class -> json.decodeFromString(vector2iSerializer, this) as T
+    Vector2::class -> json.decodeFromString(vector2Serializer, this) as T
+    Vector3i::class -> json.decodeFromString(vector3iSerializer, this) as T
+    Vector3::class -> json.decodeFromString(vector3Serializer, this) as T
+    Vector4i::class -> json.decodeFromString(vector4iSerializer, this) as T
+    Vector4::class -> json.decodeFromString(vector4Serializer, this) as T
     else -> json.decodeFromString<T>(this)
 }

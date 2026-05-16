@@ -6,6 +6,7 @@ import godot.annotation.Export
 import godot.annotation.RegisterFunction
 import godot.annotation.RegisterProperty
 import godot.annotation.Rpc
+import godot.annotation.RpcMode
 import godot.core.StringName
 import godot.core.VariantArray
 
@@ -22,15 +23,18 @@ interface Replicated : WithRemoteListeners {
     @RegisterFunction
     fun notificationOnChildExitingTreeForReplicated(child: Node)
 
-    @Rpc
+    // Spawn / despawn flows from server (authority) outward to peers. RpcMode.AUTHORITY
+    // means godot-kotlin-jvm will reject calls from any peer other than the node's
+    // multiplayer authority. Explicit to insulate against future plugin default changes.
+    @Rpc(rpcMode = RpcMode.AUTHORITY)
     @RegisterFunction
     fun peerSpawnForReplicated(spawnNodeData: String)
 
-    @Rpc
+    @Rpc(rpcMode = RpcMode.AUTHORITY)
     @RegisterFunction
     fun peerSpawnAllForReplicated(spawnNodesData: String)
 
-    @Rpc
+    @Rpc(rpcMode = RpcMode.AUTHORITY)
     @RegisterFunction
     fun peerDespawnForReplicated(name: StringName)
 }

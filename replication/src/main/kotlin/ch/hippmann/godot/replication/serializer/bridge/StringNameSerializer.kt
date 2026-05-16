@@ -11,7 +11,7 @@ import kotlinx.serialization.encoding.Encoder
 
 class StringNameSerializer : KSerializer<StringName> {
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor(StringName::class.qualifiedName!!) {
-        element<String>("nodePath")
+        element<String>("stringName")
     }
 
     override fun deserialize(decoder: Decoder): StringName = decoder.decodeString().asStringName()

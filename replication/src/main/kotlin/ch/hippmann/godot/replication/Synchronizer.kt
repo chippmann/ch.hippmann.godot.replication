@@ -12,7 +12,8 @@ import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.util.*
+import java.util.Queue
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.coroutines.CoroutineContext
 import kotlin.reflect.KFunction2
 
@@ -42,8 +43,11 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
                 }
         }
 
-    private val sendQueue: Queue<() -> Unit> = LinkedList()
-    private val receiveQueue: Queue<() -> Unit> = LinkedList()
+    // ConcurrentLinkedQueue is required because the ticker coroutines run on
+    // Dispatchers.Default and produce send-side entries while performSynchronization
+    // drains both queues from Godot's main thread.
+    private val sendQueue: Queue<() -> Unit> = ConcurrentLinkedQueue()
+    private val receiveQueue: Queue<() -> Unit> = ConcurrentLinkedQueue()
 
     override fun <T> T.initSynchronization() where T : Node, T : Synchronized {
         initNodeAccess()
@@ -119,25 +123,6 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
                         }
                         delay(tick)
                     }
-//                    ticker(tick).consumeAsFlow().collectLatest {
-//                        withContext(mainDispatcher()) {
-//                            val node = thisNode.get() ?: run {
-//                                this.cancel()
-//                                return@withContext
-//                            }
-//                            configs.forEach { (fqName, syncConfig) ->
-//                                withRemoteListeners { peerId ->
-//                                    val syncData = syncConfig.serializeSyncData()
-//                                    debug { "Synchronizer[${this@ifAuthority.name}]: sending sync data: $syncData for property: $fqName to peer with id: $peerId" }
-//
-//                                    when (syncConfig.syncMethod) {
-//                                        SyncConfig.SyncMethod.RELIABLE -> node.rpcId(peerId, thisNodeAsType<Synchronized>()::replicateForSynchronized, fqName, syncData)
-//                                        SyncConfig.SyncMethod.UNRELIABLE -> node.rpcUnreliableId(peerId, thisNodeAsType<Synchronized>()::replicateForSynchronized, fqName, syncData)
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
                 }
             }
         }

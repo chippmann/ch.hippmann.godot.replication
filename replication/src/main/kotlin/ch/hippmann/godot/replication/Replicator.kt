@@ -97,12 +97,21 @@ class Replicator : Replicated, WithRemoteListeners by RemoteListenerManager(),
     override fun peerDespawnForReplicated(name: StringName) {
         ifPeer {
             Log.debug { "Replicator[${this.name}]: received despawn request for node with name: $name" }
-            getNodeAs<Node>(name.toString())?.queueFree()
+            getNodeOrNull(name.toString())?.queueFree()
         }
     }
 
     private fun Node.spawnNode(spawnNodeData: SpawnNodeData) {
         Log.debug { "Replicator[${this.name}]: received spawn request with spawnData: $spawnNodeData" }
+
+        // Skip if a child with this name already exists. Without this, a race between
+        // the spawn-on-add RPC and the spawn-all-on-subscribe snapshot — both legitimate
+        // — would cause the same managed scene to be instantiated twice, and Godot would
+        // silently rename the duplicate, breaking later despawn-by-name lookups.
+        if (getNodeOrNull(spawnNodeData.nodeName) != null) {
+            Log.debug { "Replicator[${this.name}]: already have a child named '${spawnNodeData.nodeName}', skipping duplicate spawn" }
+            return
+        }
 
         _managedScenes[spawnNodeData.packedScenePath]
             ?.instantiate()

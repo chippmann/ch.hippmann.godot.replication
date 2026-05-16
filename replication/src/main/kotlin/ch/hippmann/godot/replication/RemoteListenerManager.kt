@@ -61,15 +61,6 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
                 }
             }
         }
-
-//        ifAuthority {
-//            debug("RemoteListener[${this.name}]: send ready to peers as authority")
-//            rpc(thisNodeAsWithRemoteListeners::peerOnAuthorityReadyForWithRemoteListeners)
-//        }
-//        ifPeer {
-//            debug("RemoteListener[${this.name}]: request subscription with authority as peer")
-//            rpc(thisNodeAsWithRemoteListeners::authorityOnPeerSubscribeForWithRemoteListeners)
-//        }
     }
 
     override fun notificationOnExitingTreeForWithRemoteListeners() {
