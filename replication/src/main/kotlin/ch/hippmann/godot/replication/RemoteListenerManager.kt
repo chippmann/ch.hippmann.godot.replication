@@ -1,6 +1,7 @@
 package ch.hippmann.godot.replication
 
 import ch.hippmann.godot.replication.autoload.RemoteListenerReadyRedirector
+import ch.hippmann.godot.replication.autoload.RemoteListenerReadyRedirector.Companion.deregister
 import ch.hippmann.godot.replication.autoload.RemoteListenerReadyRedirector.Companion.notifyReady
 import ch.hippmann.godot.utilities.logging.Log
 import godot.api.Node
@@ -76,6 +77,9 @@ class RemoteListenerManager : WithRemoteListeners, WithNodeAccess by WithNodeAcc
             Log.debug("RemoteListener[${this.name}]: leaving tree. sending unsubscribe to authority")
             rpc(thisNodeAsWithRemoteListeners::authorityOnPeerUnsubscribeForWithRemoteListeners)
         }
+        // Always drop the autoload's listener entry so the static map doesn't leak across
+        // scene transitions or repeated node add/remove cycles.
+        deregister()
     }
 
     override fun notificationOnPeerConnectedForWithRemoteListeners(peerId: Long) {

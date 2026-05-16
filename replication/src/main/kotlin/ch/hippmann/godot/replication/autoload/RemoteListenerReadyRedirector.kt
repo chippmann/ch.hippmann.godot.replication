@@ -15,6 +15,9 @@ class RemoteListenerReadyRedirector : Node() {
         @PublishedApi
         internal val listeners: MutableMap<String, (peerId: Long) -> Unit> = mutableMapOf()
 
+        /** Diagnostic accessor — current number of registered Replicated/Synchronized nodes. */
+        val listenerCount: Int get() = listeners.size
+
         @Suppress("NOTHING_TO_INLINE")
         inline fun <T> T.notifyReady(noinline onRemoteReady: (peerId: Long) -> Unit) where T : WithRemoteListeners, T : WithNodeAccess {
             val node = thisNode.get() ?: return
