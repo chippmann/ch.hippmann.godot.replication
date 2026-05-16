@@ -102,7 +102,7 @@ class TestRunner : Node() {
     private fun pass() {
         println("[TestRunner] ${args.peerName} passed")
         context.writeResult(passed = true)
-        getTree()?.quit(0)
+        gracefulShutdown(exitCode = 0)
     }
 
     private fun fail(message: String, cause: Throwable) {
@@ -112,7 +112,18 @@ class TestRunner : Node() {
             passed = false,
             error = "$message: ${cause.javaClass.name}: ${cause.message}\n${cause.stackTraceToString()}",
         )
-        getTree()?.quit(1)
+        gracefulShutdown(exitCode = 1)
+    }
+
+    /**
+     * Close the multiplayer peer explicitly before requesting tree quit. Without this,
+     * a fast quit can leave the ENet connection un-closed from the peer's perspective,
+     * making remote peers wait on their own keepalive timeout (seconds) before they
+     * observe the disconnect — flaky for the server's awaitAllClientsDisconnected.
+     */
+    private fun gracefulShutdown(exitCode: Int) {
+        runCatching { multiplayer?.multiplayerPeer?.close() }
+        getTree()?.quit(exitCode)
     }
 
     private fun PackedStringArray.toList(): List<String> {

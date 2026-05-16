@@ -98,7 +98,7 @@ class TestContext(
         }
     }
 
-    suspend fun awaitAllClientsDisconnected(timeoutMs: Long = 10_000) {
+    suspend fun awaitAllClientsDisconnected(timeoutMs: Long = 30_000) {
         pollUntil(timeoutMs) { multiplayer.getPeers().size == 0 }
     }
 

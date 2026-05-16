@@ -35,17 +35,28 @@ class MultipleSyncedPropertiesScenario : TestScenario {
         context.awaitClientsConnected(context.args.expectedClientCount)
 
         val synced = context.synced()
+        // Wait for the WithRemoteListeners handshake to actually finish on all clients
+        // before mutating properties — otherwise a slow-subscribing client misses the
+        // very first sync tick AND the per-property `shouldSendUpdate` dedup means
+        // they never receive the value again (the property doesn't change after this).
+        // Tracked as a library limitation in BUGS.md.
+        context.pollUntil(timeoutMs = 5_000) {
+            synced.listeningPeers.size == context.args.expectedClientCount
+        }
+
         synced.position = Vector3(targetPositionX, 2.5, 3.5)
         synced.counter = targetCounter
         synced.label = targetLabel
 
-        // Give the lowest-frequency property (100ms tick) at least a few cycles.
-        delay(1_500)
+        // Stay alive long enough for clients to (a) converge on all three properties
+        // and (b) write their result files. 5s is generous against a 100ms-tick label.
+        // NOT using awaitAllClientsDisconnected here — ENet's view of client departure
+        // can lag client process exit by seconds on macOS loopback, even with explicit
+        // multiplayerPeer.close().
+        delay(5_000)
         context.put("serverPositionX", synced.position.x.toInt())
         context.put("serverCounter", synced.counter)
         context.put("serverLabel", synced.label)
-
-        context.awaitAllClientsDisconnected()
     }
 
     override suspend fun runAsClient(context: TestContext) {

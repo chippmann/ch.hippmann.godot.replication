@@ -144,6 +144,56 @@ three spawn/despawn entry points. Other interfaces were already explicit.
 
 ---
 
+### #19 Synchronizer per-property `shouldSendUpdate` dedup is global, not per-peer
+
+`SyncConfigDsl.property` constructs a closure that tracks `lastSyncState` once
+per property. When a new peer's WithRemoteListeners handshake completes AFTER
+the authority has already settled the property to its target value,
+`shouldSendUpdate` returns false on every subsequent tick and the late peer
+never receives that property value.
+
+`Replicated` works around this for managed children via the spawn-all snapshot
+on peer subscribe. `Synchronized` outside of a `Replicated` parent has no such
+mechanism — a "stable" property stays missed permanently for late subscribers.
+
+**Fix idea:** track `lastSyncState` per peer (Map keyed by peerId) in the
+shouldSendUpdate closure, OR on `onPeerSubscribed` enqueue an immediate
+full-state sync for the new peer (matching what Replicator does for spawn data).
+
+**Test status:** `MultipleSyncedPropertiesScenario` works around this by waiting
+for `synced.listeningPeers.size == expectedClientCount` BEFORE mutating any
+property. Once the library fix lands, that wait can be removed.
+
+---
+
+### #20 Godot/JVM aborts (SIGABRT) on process exit when Synchronizer tickers are active
+
+Observed during test teardown: SIGABRT inside a `jni_CallVoidMethodA` →
+`SafepointSynchronize::block`. The JVM requests a safepoint (typically for
+GC or stop-the-world during shutdown) but a thread on `Dispatchers.Default`
+is still mid-JNI call (the ticker coroutine touching `thisNode.get()` and
+godot bindings) and can't reach safepoint, so the wait never resolves and
+the JVM aborts. On macOS the OS surfaces the resulting crash via a
+"Godot quit unexpectedly" dialog from `ReportCrash`.
+
+The crash is asynchronous to test outcomes — tests can pass cleanly and
+still leave a crash report behind. It does not affect test correctness but
+is noisy in development.
+
+**Fix idea:** move the Synchronizer ticker off `Dispatchers.Default` onto a
+Godot-main-thread scheduler (e.g., a `_process` frame counter rather than
+`delay(tick)`), eliminating the cross-thread JNI hazard at shutdown.
+
+**Workaround for development:**
+```sh
+defaults write com.apple.CrashReporter DialogType none
+killall ReportCrash
+```
+suppresses the dialog system-wide. Crashes still go to
+`~/Library/Logs/DiagnosticReports/` for forensic inspection.
+
+---
+
 ## Small / cosmetic
 
 ### #12 `StringNameSerializer` descriptor element is named `"nodePath"` — **FIXED**
