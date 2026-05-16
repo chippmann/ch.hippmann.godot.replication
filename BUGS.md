@@ -1,0 +1,226 @@
+# Bugs & TODOs
+
+Known issues in `replication/` and the integration-test harness. Severity is impact
+× likelihood-in-real-use. Status tracks whether an `replication-it` scenario covers it.
+
+---
+
+## High severity
+
+### #1 `syncChannel` is unreachable from the `SyncConfigs` DSL
+
+`SyncConfig.kt:75` stores a `syncChannel: SyncChannel` and `Synchronizer.kt:101-112`
+dispatches over it across 10 RPC methods, but `SyncConfigDsl.PropertyConfig`
+(`SyncConfig.kt:56-63`) doesn't expose it. Every DSL-built config gets `CHANNEL_0`,
+making the 10-channel boilerplate dead code.
+
+**Fix:** add `var syncChannel = SyncConfig.SyncChannel.CHANNEL_0` to `PropertyConfig`
+and pass it through in the `SyncConfig(...)` construction.
+
+**Test status:** none. Unit-testable via the DSL — no integration test needed.
+
+---
+
+### #2 `sendQueue` / `receiveQueue` in `Synchronizer` are not thread-safe
+
+`Synchronizer.kt:45-46` uses raw `LinkedList<() -> Unit>`. `sendQueue.add` runs from
+coroutines on `Dispatchers.Default`; `sendQueue.poll` runs from Godot's main thread in
+`performSynchronization()`. Concurrent `add`/`poll` corrupts `LinkedList` internals.
+
+**Fix:** `ConcurrentLinkedQueue` for both.
+
+**Test status:** none. Easier to reproduce with a JVM stress test than an integration
+test (timing-dependent corruption).
+
+---
+
+### #3 No authority verification on `Synchronized` sync RPCs
+
+`Synchronized.kt:21-67` declares all `replicateForSynchronized*` as
+`@Rpc(rpcMode = RpcMode.ANY)`. Handlers check `ifPeer { applySyncData(...) }` but never
+verify the **sender** is the authority of that node. Any peer in the session can push
+forged property values to any other peer's `Synchronized` node.
+
+**Fix:** in each handler, compare `multiplayer.getRemoteSenderId()` to
+`getMultiplayerAuthority()` before applying. Or split into an authority-only path with
+a separate "any-can-write" opt-in for client-authority property patterns.
+
+**Test status:** none. Integration scenario `ForgedSyncScenario` (planned): peer B
+directly invokes `replicateForSynchronizedReliable` on peer C's node, assert C's
+property unchanged.
+
+---
+
+### #4 `WithRemoteListeners` ready-handshake is fire-once and timing-fragile
+
+`RemoteListenerManager.notificationOnReadyForWithRemoteListeners` calls `notifyReady`
+exactly once when the node enters the tree. `notifyReady` registers the local listener
+and broadcasts `remoteReady(nodePath)` through the autoload. **If multiplayer isn't
+connected at that moment, the RPC silently goes nowhere.** Worse, the library never
+re-fires on `peer_connected` — so a peer that joins after a `Replicated` node was
+ready never learns it exists.
+
+Consequence: the consumer must connect multiplayer *before* adding any `Replicated` /
+`Synchronized` node. There's no error, just silent breakage.
+
+**Fix:** connect to `multiplayer.peerConnected` in `initListening` (the disconnected
+side is already wired). On each new peer, replay the handshake: if authority, send
+`peerOnAuthorityReady` to the new peer; if peer and the new id is the server, send
+`authorityOnPeerSubscribe`. Alternatively, on `peer_connected`, just re-invoke
+`notifyReady`'s body for the new peer.
+
+Also worth doing: fail loudly (or queue + warn) if `notifyReady` runs with no
+multiplayer peer set.
+
+**Test status:** none. The current `SpawnScenario` is structured to dodge this bug
+(client connects before adding `Replicator`). After the fix, write a `LateAddScenario`
+that adds the `Replicator` *before* connecting and asserts it still ends up wired.
+
+---
+
+### #5 `RemoteListenerReadyRedirector.listeners` map leaks
+
+`RemoteListenerReadyRedirector.kt:16` is a process-wide `MutableMap<String, ...>`. A
+companion `deregister()` exists (line 31) but nothing calls it. Each `Replicated` /
+`Synchronized` node added during a session leaves an entry — and the closure it stores
+holds references that can keep nodes alive across scene transitions.
+
+**Fix:** call `deregister()` from
+`RemoteListenerManager.notificationOnExitingTreeForWithRemoteListeners` (line 69).
+
+**Test status:** none. Scenario idea: add/remove N `Replicator`s, then reflect on the
+autoload's `listeners.size` — should drop back to baseline.
+
+---
+
+### #6 `Replicator.managedScenes` setter accumulates
+
+`Replicator.kt:17-22` populates `_managedScenes` on every assignment but never clears.
+Reassigning the property with a smaller (or different) list leaves stale entries.
+
+**Fix:** `_managedScenes.clear()` before re-populating.
+
+**Test status:** none. Could be covered as a unit test or with a quick integration
+scenario.
+
+---
+
+## Medium severity
+
+### #7 Authority changes are silently broken
+
+The README documents it but nothing enforces it. `RemoteListenerManager.listeningPeers`
+is captured at init; if `setMultiplayerAuthority(newId)` is called after init, the
+authority/peer roles flip but subscriptions don't migrate.
+
+**Fix:** either listen for `Node.multiplayerAuthorityChanged` and re-handshake, or
+fail-fast in `initListening` if anything tries to change authority later.
+
+---
+
+### #8 Ticker drift in `Synchronizer`
+
+`Synchronizer.kt:84-121` is `while (isActive) { enqueue; delay(tick) }`. Effective
+period is `tick + enqueue time + scheduling jitter`. At small ticks (16ms) this drifts.
+The commented-out `ticker(...)` block on lines 122-140 was closer to the right design.
+
+**Fix:** either commit to `delay` and accept drift (document it), or use a
+timestamp-corrected loop.
+
+---
+
+### #9 `peerSpawnAllForReplicated` doesn't reconcile
+
+`Replicator.kt:82-90` instantiates everything from the authority's snapshot but never
+removes locally-spawned children that no longer exist on the authority. If a peer ever
+holds stale state (edge cases on re-subscribe), they'll have ghosts plus the new
+snapshot side-by-side.
+
+**Fix:** clear managed children before applying the snapshot, or diff and reconcile.
+
+---
+
+### #10 `Replicator.spawnNode` doesn't guard duplicate names
+
+`Replicator.kt:99-110` adds the spawned node without checking. If the spawn-on-add and
+spawn-all-on-subscribe RPCs race for the same node (a fast late-joiner), Godot will
+silently rename the duplicate. The later `peerDespawnForReplicated` (which looks up by
+name) won't find one of them.
+
+**Fix:** check for an existing child of the same name before instantiating.
+
+---
+
+### #11 RpcMode defaults are inconsistent / implicit
+
+`Replicated.kt` uses bare `@Rpc` for spawn/despawn (relying on godot-kotlin-jvm's
+default — presumably `AUTHORITY`). `WithRemoteListeners.kt` and `Synchronized.kt` are
+explicit with `RpcMode.ANY`. If godot-kotlin-jvm ever changes the default, the
+silent contract changes for the bare ones.
+
+**Fix:** make `RpcMode` explicit on every `@Rpc` in the library.
+
+---
+
+## Small / cosmetic
+
+### #12 `StringNameSerializer` descriptor element is named `"nodePath"`
+
+`StringNameSerializer.kt:14` — copy-paste from `NodePathSerializer`. Rename to
+`"stringName"`.
+
+---
+
+### #13 Dead commented-out code
+
+`Synchronizer.kt:122-140` and `RemoteListenerManager.kt:59-67` have substantial blocks
+from earlier implementations. Delete; git has them.
+
+---
+
+### #14 `Synchronizer.cancel()` is over-broad on missing node
+
+`Synchronizer.kt:87-90` calls `this.cancel()` (resolves to the `Synchronizer`
+`CoroutineScope`) when `thisNode.get()` returns null. This kills **all** tick groups,
+not just the one whose lambda observed the missing node. Likely intentional but worth
+a one-line comment so a reader doesn't read it the other way.
+
+---
+
+### #15 Serializer instantiated per call
+
+`serializer/serializer.kt:51-91` does `json.encodeToString(NodePathSerializer(), ...)`
+on every property tick. Hoist the stateless serializers to `val`s or `object`s.
+
+---
+
+### #16 `SimpleReplicator` / `SimpleSynchronizer` are non-functional stubs
+
+`replication/src/main/kotlin/.../impl/SimpleReplicator.kt` and `SimpleSynchronizer.kt`
+declare the delegation but never override `_enterTree` to call
+`initReplication()` / `initSynchronization()`. The delegate never wires up its signal
+connections. Users following the type system (instantiate `SimpleReplicator`, add to
+tree) silently get a non-functional node.
+
+**Fix:** either add the `_enterTree` override inside the `Simple*` classes, or remove
+them entirely so consumers are forced to follow the README pattern. If kept, document
+clearly that they're for `Node` only and a custom subclass is needed for
+`Node2D`/`Node3D`/`CharacterBody3D`/etc.
+
+**Test status:** discovered while writing `replication-it/SpawnScenario`; the scenario
+now uses a hand-rolled `ITReplicator`.
+
+---
+
+### #17 `SyncMethod.UNRELIABLE` ignores channels
+
+Only `UNRELIABLE_ORDERED` exposes a channel in `Synchronizer.kt:101-112`. `UNRELIABLE`
+and `RELIABLE` always go on channel 0. Godot supports channels on all transfer modes.
+Either parametrize, or document the limitation.
+
+---
+
+### #18 `peerDespawnForReplicated` allocates unnecessarily
+
+`Replicator.kt:95`: `getNodeAs<Node>(name.toString())` — the `toString()` round-trip on
+every despawn is wasteful. Use `getNodeOrNull(NodePath(name))` or iterate children.
