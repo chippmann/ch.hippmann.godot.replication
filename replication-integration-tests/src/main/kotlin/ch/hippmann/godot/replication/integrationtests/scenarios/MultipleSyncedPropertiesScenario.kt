@@ -2,6 +2,7 @@ package ch.hippmann.godot.replication.integrationtests.scenarios
 
 import ch.hippmann.godot.replication.integrationtests.TestContext
 import ch.hippmann.godot.replication.integrationtests.TestScenario
+import ch.hippmann.godot.replication.integrationtests.TestScene
 import ch.hippmann.godot.replication.integrationtests.fixtures.IntegrationTestMultiSynced
 import godot.core.Vector3
 import kotlinx.coroutines.delay
@@ -15,13 +16,8 @@ import kotlinx.coroutines.delay
  * Server sets all three properties to non-default values; each client should
  * converge to all three.
  */
+@TestScene("res://scenes/synchronized_multi.tscn")
 class MultipleSyncedPropertiesScenario : TestScenario {
-    override val scenePath: String = "res://scenes/synchronized_multi.tscn"
-
-    // CAREFUL: scenario classes are loaded reflectively on the orchestrator JVM side
-    // too (to read scenePath at launch time). That classpath does NOT have godot-api.
-    // Field initializers must therefore stick to primitives / String — anything from
-    // godot.core.* would NoClassDefFoundError before runAsServer ever runs.
     private val targetCounter = 42
     private val targetLabel = "synchronized"
     private val targetPositionX = 1.5
@@ -35,15 +31,10 @@ class MultipleSyncedPropertiesScenario : TestScenario {
         context.awaitClientsConnected(context.args.expectedClientCount)
 
         val synced = context.synced()
-        // Wait for the WithRemoteListeners handshake to actually finish on all clients
-        // before mutating properties — otherwise a slow-subscribing client misses the
-        // very first sync tick AND the per-property `shouldSendUpdate` dedup means
-        // they never receive the value again (the property doesn't change after this).
-        // Tracked as a library limitation in BUGS.md.
-        context.pollUntil(timeoutMs = 5_000) {
-            synced.listeningPeers.size == context.args.expectedClientCount
-        }
-
+        // Mutate immediately on multiplayer peer_connected — clients whose
+        // WithRemoteListeners handshake hasn't finished yet rely on the library's
+        // onPeerSubscribed catch-up (bug #19 fix) to receive these values when
+        // they eventually subscribe.
         synced.position = Vector3(targetPositionX, 2.5, 3.5)
         synced.counter = targetCounter
         synced.label = targetLabel

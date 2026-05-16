@@ -2,6 +2,7 @@ package ch.hippmann.godot.replication.integrationtests.scenarios
 
 import ch.hippmann.godot.replication.integrationtests.TestContext
 import ch.hippmann.godot.replication.integrationtests.TestScenario
+import ch.hippmann.godot.replication.integrationtests.TestScene
 import ch.hippmann.godot.replication.integrationtests.fixtures.IntegrationTestSynchronized
 import godot.core.Vector3
 import kotlinx.coroutines.delay
@@ -14,9 +15,8 @@ import kotlinx.coroutines.delay
  * customPosition immediately after the spawn propagates — no per-tick sync window
  * required.
  */
+@TestScene("res://scenes/replication_synced_managed.tscn")
 class SyncOnSpawnScenario : TestScenario {
-    override val scenePath: String = "res://scenes/replication_synced_managed.tscn"
-
     private val initialX = 10.0
     private val initialY = 20.0
     private val initialZ = 30.0

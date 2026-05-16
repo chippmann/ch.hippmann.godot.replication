@@ -2,6 +2,7 @@ package ch.hippmann.godot.replication.integrationtests.scenarios
 
 import ch.hippmann.godot.replication.integrationtests.TestContext
 import ch.hippmann.godot.replication.integrationtests.TestScenario
+import ch.hippmann.godot.replication.integrationtests.TestScene
 import ch.hippmann.godot.replication.integrationtests.fixtures.IntegrationTestSynchronized
 import godot.core.Vector3
 import kotlinx.coroutines.delay
@@ -18,9 +19,8 @@ import kotlinx.coroutines.delay
  * value would jump to 999. With the fix, the receiver's `replicate(...)` rejects
  * the call because `multiplayer.getRemoteSenderId()` is not the node's authority.
  */
+@TestScene("res://scenes/synchronized_basic.tscn")
 class ForgedSyncScenario : TestScenario {
-    override val scenePath: String = "res://scenes/synchronized_basic.tscn"
-
     private val authoritativeX = 42.0
     private val forgedX = 999.0
     private val propertyFullyQualifiedName =

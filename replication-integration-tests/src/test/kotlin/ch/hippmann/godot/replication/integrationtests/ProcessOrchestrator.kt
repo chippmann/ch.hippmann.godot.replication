@@ -37,17 +37,18 @@ class ProcessOrchestrator(
     val port: Int = ServerSocket(0).use { it.localPort }
     val resultDir: File = Files.createTempDirectory("replication-it-").toFile()
 
-    /** Launch a peer running [scenarioClass]. The scenario's [TestScenario.scenePath] becomes the Godot main scene. */
+    /** Launch a peer running [scenarioClass]. The scenario's [TestScene] annotation (or the default) becomes the Godot main scene. */
     fun launch(
         scenarioClass: KClass<out TestScenario>,
         role: Role,
         peerName: String,
         expectedClientCount: Int = 0,
     ): PeerHandle {
-        val scenario = scenarioClass.java.getDeclaredConstructor()
-            .apply { isAccessible = true }
-            .newInstance()
-        val scenePath = scenario.scenePath
+        // Read the scene path via the @TestScene annotation rather than by
+        // instantiating the scenario class — instantiation would trigger field
+        // initializers that may reference godot.core.* types not on the
+        // orchestrator's classpath (see KDoc on [TestScene]).
+        val scenePath = TestScenario.scenePathFor(scenarioClass.java)
         val scenarioFullyQualifiedClassName = scenarioClass.java.name
 
         val stdoutFile = File(resultDir, "$peerName.out")

@@ -86,11 +86,22 @@ class Replicator : Replicated, WithRemoteListeners by RemoteListenerManager(),
 
     override fun peerSpawnAllForReplicated(spawnNodesData: SerializedData) {
         ifPeer {
-            spawnNodesData
-                .deserialize<List<SpawnNodeData>>()
-                .forEach { spawnNodeData ->
-                    spawnNode(spawnNodeData)
+            val incoming = spawnNodesData.deserialize<List<SpawnNodeData>>()
+            val incomingNames = incoming.map { it.nodeName }.toSet()
+
+            // Reconcile: drop any locally-spawned managed child that's NOT in the
+            // authority's snapshot. Without this, a peer that re-subscribes (e.g.
+            // after the authority's listener state was rebuilt) would keep stale
+            // children alongside the fresh snapshot. spawnNode already de-dups by
+            // name, so existing-and-still-present children are not re-instantiated.
+            getChildren().forEach { child ->
+                if (provideManagedSceneFromNode(child) != null && child.name.toString() !in incomingNames) {
+                    Log.debug { "Replicator[${this.name}]: reconcile — removing stale managed child '${child.name}'" }
+                    child.queueFree()
                 }
+            }
+
+            incoming.forEach { spawnNodeData -> spawnNode(spawnNodeData) }
         }
     }
 

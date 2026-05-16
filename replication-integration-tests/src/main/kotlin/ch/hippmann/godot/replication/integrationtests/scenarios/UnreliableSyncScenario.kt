@@ -2,6 +2,7 @@ package ch.hippmann.godot.replication.integrationtests.scenarios
 
 import ch.hippmann.godot.replication.integrationtests.TestContext
 import ch.hippmann.godot.replication.integrationtests.TestScenario
+import ch.hippmann.godot.replication.integrationtests.TestScene
 import ch.hippmann.godot.replication.integrationtests.fixtures.IntegrationTestUnreliableSynced
 import godot.core.Vector3
 import kotlinx.coroutines.delay
@@ -12,9 +13,8 @@ import kotlinx.coroutines.delay
  * `replicateForSynchronizedUnreliableOrderedChannel5`. Localhost ENet is effectively
  * lossless so convergence to the final value remains a reasonable assertion.
  */
+@TestScene("res://scenes/synchronized_unreliable.tscn")
 class UnreliableSyncScenario : TestScenario {
-    override val scenePath: String = "res://scenes/synchronized_unreliable.tscn"
-
     private val updateCount = 60
     private val expectedFinalX = (updateCount - 1).toDouble()
 

@@ -51,7 +51,13 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
 
     override fun <T> T.initSynchronization() where T : Node, T : Synchronized {
         initNodeAccess()
-        initListening()
+        // On peer subscribe, push the current value of every synced property to the
+        // newly-subscribed peer specifically. Without this catch-up, a peer whose
+        // handshake completes AFTER a property has settled never sees that property —
+        // the per-property `shouldSendUpdate` dedup is global to the property, not
+        // per-peer, so subsequent ticks skip the send. Replicator already does the
+        // analogous thing for managed children via peerSpawnAllForReplicated.
+        initListening(onPeerSubscribed = { peerId -> sendFullStateTo(peerId) })
         this.treeExiting.connect {
             // cancel all syncs when exiting tree
             coroutineContext.cancelChildren()
@@ -89,6 +95,10 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
                     while (isActive) {
                         sendQueue.add {
                             val node = thisNode.get() ?: run {
+                                // `this` here is the Synchronizer's CoroutineScope, NOT just
+                                // the launching coroutine — so this cancels EVERY tick-group
+                                // launch, intentional once the host node is gone (we have
+                                // nothing left to sync) but worth being explicit about.
                                 this.cancel()
                                 return@add
                             }
@@ -96,26 +106,8 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
                                 .filterValues { syncConfig -> syncConfig.shouldSendUpdate() }
                                 .forEach { (fqName, syncConfig) ->
                                     val syncData = syncConfig.serializeSyncData()
-
                                     Log.debug { "Synchronizer[${this@ifAuthority.name}]: sending sync data: $syncData for property: $fqName to peers" }
-
-                                    val rpcFunction: KFunction2<String, String, Unit> = when (syncConfig.syncMethod) {
-                                        SyncConfig.SyncMethod.RELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedReliable
-                                        SyncConfig.SyncMethod.UNRELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliable
-                                        SyncConfig.SyncMethod.UNRELIABLE_ORDERED -> when (syncConfig.syncChannel) {
-                                            SyncConfig.SyncChannel.CHANNEL_0 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel0
-                                            SyncConfig.SyncChannel.CHANNEL_1 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel1
-                                            SyncConfig.SyncChannel.CHANNEL_2 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel2
-                                            SyncConfig.SyncChannel.CHANNEL_3 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel3
-                                            SyncConfig.SyncChannel.CHANNEL_4 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel4
-                                            SyncConfig.SyncChannel.CHANNEL_5 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel5
-                                            SyncConfig.SyncChannel.CHANNEL_6 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel6
-                                            SyncConfig.SyncChannel.CHANNEL_7 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel7
-                                            SyncConfig.SyncChannel.CHANNEL_8 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel8
-                                            SyncConfig.SyncChannel.CHANNEL_9 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel9
-                                        }
-                                    }
-
+                                    val rpcFunction = rpcFunctionFor(syncConfig)
                                     withRemoteListeners { peerId: Long ->
                                         node.rpcId(peerId, rpcFunction, fqName, syncData)
                                     }
@@ -127,6 +119,42 @@ class Synchronizer : Synchronized, WithRemoteListeners by RemoteListenerManager(
             }
         }
     }
+
+    /**
+     * Push the current value of every synced property to [peerId]. Called from the
+     * onPeerSubscribed hook so newly-joined peers catch up to whatever the authority
+     * has already settled — works around the per-property `shouldSendUpdate` dedup
+     * being global rather than per-peer.
+     */
+    private fun sendFullStateTo(peerId: Long) {
+        ifAuthority {
+            val node = thisNode.get() ?: return@ifAuthority
+            syncConfig.forEach { (fqName, syncConfig) ->
+                val syncData = syncConfig.serializeSyncData()
+                val rpcFunction = rpcFunctionFor(syncConfig)
+                Log.debug { "Synchronizer[${node.name}]: catch-up sync of '$fqName' to peer $peerId" }
+                node.rpcId(peerId, rpcFunction, fqName, syncData)
+            }
+        }
+    }
+
+    private fun rpcFunctionFor(syncConfig: SyncConfig): KFunction2<String, String, Unit> =
+        when (syncConfig.syncMethod) {
+            SyncConfig.SyncMethod.RELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedReliable
+            SyncConfig.SyncMethod.UNRELIABLE -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliable
+            SyncConfig.SyncMethod.UNRELIABLE_ORDERED -> when (syncConfig.syncChannel) {
+                SyncConfig.SyncChannel.CHANNEL_0 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel0
+                SyncConfig.SyncChannel.CHANNEL_1 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel1
+                SyncConfig.SyncChannel.CHANNEL_2 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel2
+                SyncConfig.SyncChannel.CHANNEL_3 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel3
+                SyncConfig.SyncChannel.CHANNEL_4 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel4
+                SyncConfig.SyncChannel.CHANNEL_5 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel5
+                SyncConfig.SyncChannel.CHANNEL_6 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel6
+                SyncConfig.SyncChannel.CHANNEL_7 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel7
+                SyncConfig.SyncChannel.CHANNEL_8 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel8
+                SyncConfig.SyncChannel.CHANNEL_9 -> thisNodeAsType<Synchronized>()::replicateForSynchronizedUnreliableOrderedChannel9
+            }
+        }
 
     private fun replicate(fqName: String, data: SerializedData) {
         // Authority verification has to happen synchronously inside the @Rpc handler:

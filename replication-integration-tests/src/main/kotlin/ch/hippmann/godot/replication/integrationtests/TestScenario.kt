@@ -1,19 +1,16 @@
 package ch.hippmann.godot.replication.integrationtests
 
 interface TestScenario {
-    /**
-     * Godot scene file (as a `res://` path) that this scenario expects to be the main
-     * scene of the test process. Most scenarios use [DEFAULT_SCENE], which contains a
-     * [TestRunner] root with a single Replicator child whose `managedScenes` is preset.
-     * Scenarios that need a different node hierarchy can point at their own `.tscn`.
-     */
-    val scenePath: String get() = DEFAULT_SCENE
-
     suspend fun runAsServer(context: TestContext)
     suspend fun runAsClient(context: TestContext)
 
     companion object {
-        const val DEFAULT_SCENE = "res://scenes/replication_basic.tscn"
+        /** Default scene used when the scenario class isn't `@TestScene`-annotated. */
+        const val DEFAULT_SCENE_PATH = "res://scenes/replication_basic.tscn"
+
+        /** Resolves the scene path for a scenario class — annotation wins, default else. */
+        fun scenePathFor(scenarioClass: Class<out TestScenario>): String =
+            scenarioClass.getAnnotation(TestScene::class.java)?.path ?: DEFAULT_SCENE_PATH
     }
 }
 

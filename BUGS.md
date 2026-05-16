@@ -95,14 +95,24 @@ the spawn RPC handler uses to instantiate; reassigning the server's
 
 ## Medium severity
 
-### #7 Authority changes are silently broken
+### #7 Authority changes are silently broken — **godot-API limitation**
 
-The README documents it but nothing enforces it. `RemoteListenerManager.listeningPeers`
-is captured at init; if `setMultiplayerAuthority(newId)` is called after init, the
-authority/peer roles flip but subscriptions don't migrate.
+`RemoteListenerManager.listeningPeers` is populated during the WithRemoteListeners
+handshake. If a consumer calls `setMultiplayerAuthority(newId)` after the handshake
+completes, the authority/peer roles flip but the existing subscriptions don't
+migrate — the new authority's `listeningPeers` is empty; old peers think they're
+still subscribed to the old authority.
 
-**Fix:** either listen for `Node.multiplayerAuthorityChanged` and re-handshake, or
-fail-fast in `initListening` if anything tries to change authority later.
+**Root cause is Godot-side:** there's no `multiplayerAuthorityChanged` signal on
+`Node` to react to. The library would have to either (a) poll
+`getMultiplayerAuthority()` every frame (cost without clear gain), or
+(b) require consumers to call an explicit `refreshAuthorityState()` after every
+`setMultiplayerAuthority`, which is just shifting the silent-break to "forgot
+the post-call" rather than "didn't know about the constraint".
+
+**Recommendation for now:** README continues to state authority must be fixed
+before tree entry. If a real use case for mutable authority shows up, add the
+explicit `refreshAuthorityState()` API surface.
 
 ---
 
@@ -117,14 +127,12 @@ timestamp-corrected loop.
 
 ---
 
-### #9 `peerSpawnAllForReplicated` doesn't reconcile
+### #9 `peerSpawnAllForReplicated` doesn't reconcile — **FIXED**
 
-`Replicator.kt:82-90` instantiates everything from the authority's snapshot but never
-removes locally-spawned children that no longer exist on the authority. If a peer ever
-holds stale state (edge cases on re-subscribe), they'll have ghosts plus the new
-snapshot side-by-side.
-
-**Fix:** clear managed children before applying the snapshot, or diff and reconcile.
+`Replicator.peerSpawnAllForReplicated` now diffs the incoming snapshot against
+locally-spawned managed children: any local managed child whose name isn't in
+the snapshot is `queueFree`d before the snapshot is applied. Combined with the
+duplicate-name guard (#10), re-subscription is idempotent.
 
 ---
 
@@ -144,25 +152,21 @@ three spawn/despawn entry points. Other interfaces were already explicit.
 
 ---
 
-### #19 Synchronizer per-property `shouldSendUpdate` dedup is global, not per-peer
+### #19 Synchronizer per-property `shouldSendUpdate` dedup is global, not per-peer — **FIXED**
 
-`SyncConfigDsl.property` constructs a closure that tracks `lastSyncState` once
-per property. When a new peer's WithRemoteListeners handshake completes AFTER
-the authority has already settled the property to its target value,
-`shouldSendUpdate` returns false on every subsequent tick and the late peer
-never receives that property value.
+Synchronizer now passes an `onPeerSubscribed` callback through `initListening`.
+When a new peer's WithRemoteListeners handshake completes, the authority
+immediately `rpcId`s the current value of every synced property to that peer
+specifically (`sendFullStateTo`). Mirrors what `Replicator.onPeerSubscribe`
+already did for managed children's spawn-all snapshot.
 
-`Replicated` works around this for managed children via the spawn-all snapshot
-on peer subscribe. `Synchronized` outside of a `Replicated` parent has no such
-mechanism — a "stable" property stays missed permanently for late subscribers.
+`shouldSendUpdate`'s global dedup is preserved — it still cuts redundant
+periodic ticks — but late subscribers now always get a one-shot catch-up,
+so a stable value is no longer permanently missed.
 
-**Fix idea:** track `lastSyncState` per peer (Map keyed by peerId) in the
-shouldSendUpdate closure, OR on `onPeerSubscribed` enqueue an immediate
-full-state sync for the new peer (matching what Replicator does for spawn data).
-
-**Test status:** `MultipleSyncedPropertiesScenario` works around this by waiting
-for `synced.listeningPeers.size == expectedClientCount` BEFORE mutating any
-property. Once the library fix lands, that wait can be removed.
+**Test status:** `MultipleSyncedPropertiesScenario` had a workaround wait
+`pollUntil { listeningPeers.size == expectedClientCount }`; that wait has
+been removed and the test still passes, proving the catch-up fires.
 
 ---
 
@@ -208,12 +212,11 @@ Renamed to `"stringName"`.
 
 ---
 
-### #14 `Synchronizer.cancel()` is over-broad on missing node
+### #14 `Synchronizer.cancel()` is over-broad on missing node — **commented**
 
-`Synchronizer.kt:87-90` calls `this.cancel()` (resolves to the `Synchronizer`
-`CoroutineScope`) when `thisNode.get()` returns null. This kills **all** tick groups,
-not just the one whose lambda observed the missing node. Likely intentional but worth
-a one-line comment so a reader doesn't read it the other way.
+Added a comment explaining `this.cancel()` resolves to the Synchronizer's whole
+CoroutineScope (cancelling every tick group), and that this is intentional once
+the host node is gone — there's nothing left to sync.
 
 ---
 
@@ -243,11 +246,15 @@ now uses a hand-rolled `IntegrationTestReplicator`.
 
 ---
 
-### #17 `SyncMethod.UNRELIABLE` ignores channels
+### #17 `SyncMethod.UNRELIABLE` ignores channels — **wont-fix-by-design**
 
-Only `UNRELIABLE_ORDERED` exposes a channel in `Synchronizer.kt:101-112`. `UNRELIABLE`
-and `RELIABLE` always go on channel 0. Godot supports channels on all transfer modes.
-Either parametrize, or document the limitation.
+Only `UNRELIABLE_ORDERED` exposes a channel in `Synchronizer.kt`; `UNRELIABLE` and
+`RELIABLE` always go on channel 0. Godot *does* support channels on all transfer
+modes, but exposing it through this library would mean another 20 channel-specific
+`@Rpc`-annotated methods on `Synchronized` (10 each for RELIABLE/UNRELIABLE)
+because godot-kotlin-jvm requires the channel as an annotation constant. Godot's
+default ENet channel count is 1; non-ordered channeled transfers are an unusual
+use case. Marked as design choice; revisit if a real user pattern needs it.
 
 ---
 

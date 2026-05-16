@@ -2,6 +2,7 @@ package ch.hippmann.godot.replication.integrationtests.scenarios
 
 import ch.hippmann.godot.replication.integrationtests.TestContext
 import ch.hippmann.godot.replication.integrationtests.TestScenario
+import ch.hippmann.godot.replication.integrationtests.TestScene
 import ch.hippmann.godot.replication.integrationtests.fixtures.IntegrationTestSynchronized
 import godot.core.Vector3
 import kotlinx.coroutines.delay
@@ -15,9 +16,8 @@ import kotlinx.coroutines.delay
  * explicitly — it stresses the send/receive queue, the per-property serializer, and
  * the shouldSendUpdate de-duplication.
  */
+@TestScene("res://scenes/synchronized_basic.tscn")
 class FrameSyncScenario : TestScenario {
-    override val scenePath: String = "res://scenes/synchronized_basic.tscn"
-
     private val updateCount = 60
     private val expectedFinalX = (updateCount - 1).toDouble()
 

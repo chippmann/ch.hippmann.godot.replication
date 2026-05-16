@@ -4,6 +4,7 @@ import ch.hippmann.godot.replication.SyncConfig
 import ch.hippmann.godot.replication.integrationtests.TestContext
 import ch.hippmann.godot.replication.integrationtests.TestRunner
 import ch.hippmann.godot.replication.integrationtests.TestScenario
+import ch.hippmann.godot.replication.integrationtests.TestScene
 
 /**
  * Pins bug #1: `PropertyConfig.syncChannel` used to not exist, so every config built
@@ -14,8 +15,8 @@ import ch.hippmann.godot.replication.integrationtests.TestScenario
  * Single-peer scenario. Constructs four DSL configs with distinct transfer modes /
  * channels and reports each resulting `(syncMethod, syncChannel)` pair.
  */
+@TestScene("res://scenes/empty.tscn")
 class SyncConfigDslScenario : TestScenario {
-    override val scenePath: String = "res://scenes/empty.tscn"
 
     override suspend fun runAsServer(context: TestContext) {
         val runner = context.runner as TestRunner

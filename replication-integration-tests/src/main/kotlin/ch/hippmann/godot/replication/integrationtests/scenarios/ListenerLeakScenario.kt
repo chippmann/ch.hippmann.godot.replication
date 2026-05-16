@@ -3,6 +3,7 @@ package ch.hippmann.godot.replication.integrationtests.scenarios
 import ch.hippmann.godot.replication.autoload.RemoteListenerReadyRedirector
 import ch.hippmann.godot.replication.integrationtests.TestContext
 import ch.hippmann.godot.replication.integrationtests.TestScenario
+import ch.hippmann.godot.replication.integrationtests.TestScene
 import ch.hippmann.godot.replication.integrationtests.fixtures.IntegrationTestReplicator
 import kotlinx.coroutines.delay
 
@@ -14,9 +15,8 @@ import kotlinx.coroutines.delay
  *
  * This scenario uses the empty scene (TestRunner only) so the baseline is well-defined.
  */
+@TestScene("res://scenes/empty.tscn")
 class ListenerLeakScenario : TestScenario {
-    override val scenePath: String = "res://scenes/empty.tscn"
-
     private val replicatorCount = 5
 
     override suspend fun runAsServer(context: TestContext) {
