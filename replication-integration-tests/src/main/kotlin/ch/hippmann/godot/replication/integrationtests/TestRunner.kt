@@ -99,13 +99,13 @@ class TestRunner : Node() {
         return constructor.newInstance() as TestScenario
     }
 
-    private fun pass() {
+    private suspend fun pass() {
         println("[TestRunner] ${args.peerName} passed")
         context.writeResult(passed = true)
         gracefulShutdown(exitCode = 0)
     }
 
-    private fun fail(message: String, cause: Throwable) {
+    private suspend fun fail(message: String, cause: Throwable) {
         System.err.println("[TestRunner] ${args.peerName} failed: $message")
         cause.printStackTrace()
         context.writeResult(
@@ -116,13 +116,17 @@ class TestRunner : Node() {
     }
 
     /**
-     * Close the multiplayer peer explicitly before requesting tree quit. Without this,
-     * a fast quit can leave the ENet connection un-closed from the peer's perspective,
-     * making remote peers wait on their own keepalive timeout (seconds) before they
-     * observe the disconnect — flaky for the server's awaitAllClientsDisconnected.
+     * Close the multiplayer peer so its disconnect packet flushes before we tear the
+     * SceneTree down (otherwise remote peers wait on ENet's keepalive timeout —
+     * seconds). Then let the SceneTree settle for a handful of frames so any
+     * Synchronizer ticker coroutines on Dispatchers.Default observe tree_exiting
+     * cancellation and exit before the JVM is asked to shut down. Without this delay
+     * those coroutines are mid-JNI when the JVM requests a safepoint at process exit
+     * and the JVM SIGABRTs — see BUGS.md #20.
      */
-    private fun gracefulShutdown(exitCode: Int) {
+    private suspend fun gracefulShutdown(exitCode: Int) {
         runCatching { multiplayer?.multiplayerPeer?.close() }
+        kotlinx.coroutines.delay(300)
         getTree()?.quit(exitCode)
     }
 
