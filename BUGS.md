@@ -80,15 +80,20 @@ them, observes return to baseline. Green.
 
 ---
 
-### #6 `Replicator.managedScenes` setter accumulates
+### #6 `Replicator.managedScenes` setter accumulates — **FIXED**
 
-`Replicator.kt:17-22` populates `_managedScenes` on every assignment but never clears.
-Reassigning the property with a smaller (or different) list leaves stale entries.
+The setter now calls `_managedScenes.clear()` before re-populating from the new
+value, so reassigning to a smaller/different list drops the previous entries.
 
-**Fix:** `_managedScenes.clear()` before re-populating.
+**Test status:** `ManagedScenesReassignmentTest` — scene declares both `cube` and
+`cube_alt` (so the client can instantiate either); server reassigns to
+`[cube_alt]` only, then addChilds both a stale cube instance and a fresh
+cube_alt instance. The client must observe ONLY the cube_alt — confirms the
+old-scene path was removed from the server's filter.
 
-**Test status:** none. Could be covered as a unit test or with a quick integration
-scenario.
+Documentation gotcha exposed by the test: client-side `managedScenes` is what
+the spawn RPC handler uses to instantiate; reassigning the server's
+`managedScenes` is purely a server-side filter on outgoing spawn RPCs.
 
 ---
 

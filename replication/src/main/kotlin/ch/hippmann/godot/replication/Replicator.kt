@@ -16,6 +16,11 @@ class Replicator : Replicated, WithRemoteListeners by RemoteListenerManager(),
     override var managedScenes: VariantArray<PackedScene> = VariantArray()
         set(value) {
             field = value
+            // Replace the resolved-by-resource-path lookup wholesale; previously this
+            // setter only added entries, so reassigning the property to a different
+            // (or smaller) list left stale entries behind and any addChild whose
+            // sceneFilePath matched the old list would still replicate.
+            _managedScenes.clear()
             value.forEach { packedScene ->
                 _managedScenes[packedScene.resourcePath] = packedScene
             }

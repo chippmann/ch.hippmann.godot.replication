@@ -1,0 +1,13 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://gdj/ch/hippmann/godot/replication/integrationtests/TestRunner.gdj" id="1_runner"]
+[ext_resource type="Script" path="res://gdj/ch/hippmann/godot/replication/integrationtests/fixtures/IntegrationTestReplicator.gdj" id="2_replicator"]
+[ext_resource type="PackedScene" path="res://fixtures/cube.tscn" id="3_cube"]
+[ext_resource type="PackedScene" path="res://fixtures/cube_alt.tscn" id="4_cube_alt"]
+
+[node name="TestRunner" type="Node"]
+script = ExtResource("1_runner")
+
+[node name="Replicator" type="Node" parent="."]
+script = ExtResource("2_replicator")
+managed_scenes = [ExtResource("3_cube"), ExtResource("4_cube_alt")]
