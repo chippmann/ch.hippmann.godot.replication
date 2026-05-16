@@ -7,17 +7,15 @@ Known issues in `replication/` and the integration-test harness. Severity is imp
 
 ## High severity
 
-### #1 `syncChannel` is unreachable from the `SyncConfigs` DSL
+### #1 `syncChannel` is unreachable from the `SyncConfigs` DSL — **FIXED**
 
-`SyncConfig.kt:75` stores a `syncChannel: SyncChannel` and `Synchronizer.kt:101-112`
-dispatches over it across 10 RPC methods, but `SyncConfigDsl.PropertyConfig`
-(`SyncConfig.kt:56-63`) doesn't expose it. Every DSL-built config gets `CHANNEL_0`,
-making the 10-channel boilerplate dead code.
+`PropertyConfig` now has `var syncChannel = SyncConfig.SyncChannel.CHANNEL_0` and the
+DSL construction at SyncConfig.kt:40 passes it through to the produced `SyncConfig`.
 
-**Fix:** add `var syncChannel = SyncConfig.SyncChannel.CHANNEL_0` to `PropertyConfig`
-and pass it through in the `SyncConfig(...)` construction.
-
-**Test status:** none. Unit-testable via the DSL — no integration test needed.
+**Test status:** `SyncConfigDslTest` — single-peer scenario constructs four DSL
+configs (RELIABLE/CHANNEL_0, UNRELIABLE/CHANNEL_0, UNRELIABLE_ORDERED/CHANNEL_3,
+UNRELIABLE_ORDERED/CHANNEL_9) via a probe property on TestRunner and asserts the
+produced `SyncConfig.syncMethod` and `SyncConfig.syncChannel` match the input. Green.
 
 ---
 

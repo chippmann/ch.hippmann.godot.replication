@@ -40,6 +40,7 @@ class SyncConfigDsl {
         configs[fqName] = SyncConfig(
             tick = propertyConfig.tick,
             syncMethod = propertyConfig.syncMethod,
+            syncChannel = propertyConfig.syncChannel,
             syncOnSpawn = propertyConfig.syncOnSpawn,
             syncOnTick = propertyConfig.syncOnTick,
             getter = { serializer(property.get()) },
@@ -56,6 +57,7 @@ class SyncConfigDsl {
     class PropertyConfig<PROPERTY_TYPE> {
         var tick: Long = 16
         var syncMethod: SyncConfig.SyncMethod = SyncConfig.SyncMethod.RELIABLE
+        var syncChannel: SyncConfig.SyncChannel = SyncConfig.SyncChannel.CHANNEL_0
         var syncOnSpawn: Boolean = true
         var syncOnTick: Boolean = true
         var shouldSendUpdate: (current: PROPERTY_TYPE, fromLastSync: PROPERTY_TYPE) -> Boolean = { current, fromLastSync -> current != fromLastSync }

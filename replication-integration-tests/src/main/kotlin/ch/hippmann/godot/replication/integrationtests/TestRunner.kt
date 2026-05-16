@@ -1,5 +1,8 @@
 package ch.hippmann.godot.replication.integrationtests
 
+import ch.hippmann.godot.replication.SyncConfig
+import ch.hippmann.godot.replication.SyncConfigs
+import ch.hippmann.godot.replication.syncConfig
 import godot.annotation.RegisterClass
 import godot.annotation.RegisterFunction
 import godot.api.Node
@@ -21,6 +24,28 @@ import kotlinx.coroutines.launch
 class TestRunner : Node() {
     private lateinit var args: TestArgs
     private lateinit var context: TestContext
+
+    /**
+     * Throwaway mutable property used by scenarios that need to construct a [SyncConfigs]
+     * through the DSL without touching a real fixture. The Synchronizer DSL requires a
+     * `KMutableProperty0` on a `Node` subclass — TestRunner already is a Node.
+     */
+    var probeIntValue: Int = 0
+
+    /**
+     * Build a [SyncConfigs] entry for [probeIntValue] using the syncConfig DSL with
+     * the requested transfer mode/channel. Scenarios use this to inspect that the
+     * DSL surface actually propagates options into the resulting [SyncConfig].
+     */
+    fun buildProbeSyncConfig(
+        method: SyncConfig.SyncMethod,
+        channel: SyncConfig.SyncChannel,
+    ): SyncConfigs = syncConfig {
+        property(::probeIntValue) {
+            syncMethod = method
+            syncChannel = channel
+        }
+    }
 
     private val mainThreadDispatcher = GodotMainDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + mainThreadDispatcher)
