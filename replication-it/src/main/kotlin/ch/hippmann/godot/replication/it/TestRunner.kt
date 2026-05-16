@@ -1,6 +1,5 @@
 package ch.hippmann.godot.replication.it
 
-import ch.hippmann.godot.utilities.coroutines.mainDispatcher
 import godot.annotation.RegisterClass
 import godot.annotation.RegisterFunction
 import godot.api.Node
@@ -15,8 +14,8 @@ class TestRunner : Node() {
     private lateinit var args: TestArgs
     private lateinit var ctx: TestContext
 
-    @Suppress("DEPRECATION")
-    private val scope = CoroutineScope(SupervisorJob() + mainDispatcher())
+    private val mainDispatcher = GodotMainDispatcher()
+    private val scope = CoroutineScope(SupervisorJob() + mainDispatcher)
 
     @RegisterFunction
     override fun _ready() {
@@ -51,6 +50,11 @@ class TestRunner : Node() {
                 fail("scenario threw", t)
             }
         }
+    }
+
+    @RegisterFunction
+    override fun _process(delta: Double) {
+        mainDispatcher.drain()
     }
 
     private fun instantiateScenario(fqcn: String): TestScenario {

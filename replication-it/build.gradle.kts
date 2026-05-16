@@ -9,6 +9,16 @@ repositories {
     mavenCentral()
 }
 
+// godot-kotlin-jvm 0.13.1-4.4.1 bundles a Kotlin stdlib that's missing
+// `kotlin.time.Clock` (the runtime stripped that experimental class even though
+// the version reads 2.1.10). kotlinx-datetime 0.7.x depends on it; pin to the
+// last 0.6.x which has its own Clock implementation.
+configurations.configureEach {
+    resolutionStrategy {
+        force("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+    }
+}
+
 dependencies {
     implementation(project(":replication"))
     implementation(libs.hippmann.godot.utilities)

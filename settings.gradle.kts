@@ -14,6 +14,16 @@ pluginManagement {
     }
 }
 
+// The published utilities-0.0.9 jar references kotlinx-datetime 0.7.x types (e.g.
+// DateTimeFormatBuilder.WithYearMonth) and indirectly kotlin.time.Clock — which the
+// godot-kotlin-jvm bootstrap stdlib strips out. Pull utilities from its sibling repo
+// instead so it builds against this project's pinned kotlinx-datetime 0.6.2.
+includeBuild("../ch.hippmann.godot.utilities") {
+    dependencySubstitution {
+        substitute(module("ch.hippmann.godot:utilities")).using(project(":utilities"))
+    }
+}
+
 dependencyResolutionManagement {
     @Suppress("UnstableApiUsage")
     repositories {
