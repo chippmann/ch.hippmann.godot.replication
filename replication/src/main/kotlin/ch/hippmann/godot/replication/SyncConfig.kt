@@ -48,7 +48,14 @@ class SyncConfigDsl {
             shouldSendUpdate = {
                 val current = property.get()
                 val result = lastSyncState?.let { propertyConfig.shouldSendUpdate(current, it) } ?: true
-                lastSyncState = current
+                // Only advance the baseline when we actually send. For the default
+                // != predicate either policy is equivalent (anything not-equal
+                // triggers a send), but tolerance-based predicates (the README's
+                // isEqualApprox pattern) need `fromLastSync` to be the value at the
+                // last actual send — otherwise sub-threshold incremental drift
+                // moves the baseline forward each check and the cumulative delta
+                // never crosses the threshold.
+                if (result) lastSyncState = current
                 result
             }
         )

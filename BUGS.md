@@ -150,6 +150,25 @@ three spawn/despawn entry points. Other interfaces were already explicit.
 
 ---
 
+### #21 `shouldSendUpdate` baseline advances on every check, not every send — **FIXED**
+
+`SyncConfigDsl.property`'s closure used to set `lastSyncState = current`
+unconditionally. The variable name suggests "value at last *send*" but
+it actually tracked "value at last *check*". For the default `!=`
+predicate that's equivalent (anything not-equal triggers a send), but
+tolerance-based predicates like the README's
+`!last.isEqualApprox(current)` need the value at the last actual send —
+otherwise sub-threshold drift on every tick moves the baseline forward
+and a cumulative delta that exceeds the threshold never actually crosses
+it.
+
+Fix: only update `lastSyncState` inside `if (result)`. Pinned by
+`CumulativeDriftScenario` which makes small per-tick increments whose
+cumulative sum crosses the predicate's threshold — without the fix the
+test never converges, with the fix it does.
+
+---
+
 ### #19 Synchronizer per-property `shouldSendUpdate` dedup is global, not per-peer — **FIXED**
 
 Synchronizer now passes an `onPeerSubscribed` callback through `initListening`.
