@@ -82,7 +82,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: addon-libraries
-          path: sample/addons/jvm/libs
+          path: binding-libraries
 
       - uses: actions/download-artifact@v4
         with:
@@ -113,7 +113,7 @@ jobs:
 
       - name: Build and test
         env:
-          GODOT_JVM_ADDON_LIBRARIES: ${{ github.workspace }}/sample/addons/jvm/libs
+          GODOT_JVM_ADDON_LIBRARIES: ${{ github.workspace }}/binding-libraries
         run: ./gradlew build --no-daemon --console=plain
 
       - uses: actions/upload-artifact@v4
