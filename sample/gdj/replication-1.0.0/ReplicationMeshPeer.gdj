@@ -1,0 +1,40 @@
+// THIS FILE IS GENERATED! DO NOT EDIT OR DELETE IT. EDIT OR DELETE THE ASSOCIATED SOURCE CODE FILE INSTEAD
+
+registeredName = ReplicationMeshPeer
+fqName = ch.hippmann.godot.replication.transport.ReplicationMeshPeer
+baseType = MultiplayerPeerExtension
+supertypes = [
+    
+]
+signals = [
+    
+]
+properties = [
+    
+]
+notifications = [
+    
+]
+functions = [
+    _get_available_packet_count,
+    _get_max_packet_size,
+    _get_packet_script,
+    _put_packet_script,
+    _get_packet_channel,
+    _get_packet_mode,
+    _set_transfer_channel,
+    _get_transfer_channel,
+    _set_transfer_mode,
+    _get_transfer_mode,
+    _set_target_peer,
+    _get_packet_peer,
+    _is_server,
+    _poll,
+    _close,
+    _disconnect_peer,
+    _get_unique_id,
+    _set_refuse_new_connections,
+    _is_refusing_new_connections,
+    _is_server_relay_supported,
+    _get_connection_status
+]

@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/Hangar.kt" id="1_hangar"]
+[ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/Door.kt" id="2_door"]
+
+[node name="Hangar" type="Node3D"]
+script = ExtResource("1_hangar")
+
+[node name="Spawns" type="Node3D" parent="."]
+
+[node name="BayDoor" type="Node3D" parent="."]
+script = ExtResource("2_door")

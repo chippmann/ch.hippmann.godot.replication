@@ -1,0 +1,23 @@
+// THIS FILE IS GENERATED! DO NOT EDIT OR DELETE IT. EDIT OR DELETE THE ASSOCIATED SOURCE CODE FILE INSTEAD
+
+registeredName = ReplicationManager
+fqName = ch.hippmann.godot.replication.session.ReplicationManager
+baseType = Node
+supertypes = [
+    
+]
+signals = [
+    
+]
+properties = [
+    
+]
+notifications = [
+    
+]
+functions = [
+    _ready,
+    _process,
+    _physics_process,
+    _exit_tree
+]

@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/Arena.kt" id="1_arena"]
+[ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/Crate.kt" id="2_crate"]
+
+[node name="Arena" type="Node3D"]
+script = ExtResource("1_arena")
+
+[node name="Spawns" type="Node3D" parent="."]
+
+[node name="SupplyCrate" type="Node3D" parent="."]
+script = ExtResource("2_crate")
+
+[node name="AmmoCrate" type="Node3D" parent="."]
+script = ExtResource("2_crate")

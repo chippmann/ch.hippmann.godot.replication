@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/Crate.kt" id="1_crate"]
+
+[node name="Crate" type="Node3D"]
+script = ExtResource("1_crate")
