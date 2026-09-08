@@ -17,7 +17,7 @@ abstract class ReplicatedProperty<T>(
     internal lateinit var replica: Replica
     internal var index: Int = -1
     internal var lastChangedTick: Int = Int.MIN_VALUE
-    internal val buffer: InterpolationBuffer<T>? = if (options.interpolated) InterpolationBuffer() else null
+    internal val buffer: InterpolationBuffer<T>? = if (options.interpolated) InterpolationBuffer(stepwise = options.mode is SyncMode.OnChange) else null
     internal val interpolator: Interpolator<T>? = options.interpolator
 
     abstract fun currentValue(): T

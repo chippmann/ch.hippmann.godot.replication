@@ -4,8 +4,12 @@ public fun interface Interpolator<T> {
     public fun interpolate(from: T, to: T, weight: Double): T
 }
 
-/** Time stamped samples of one property; [sample] renders slightly in the past so movement stays smooth. */
-public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY) {
+/**
+ * Time stamped samples of one property; [sample] renders slightly in the past so movement stays smooth.
+ * A [stepwise] stream only sends changes: between two samples the value held still, a gap is not jitter, and only the
+ * last typical interval before a sample is a transition.
+ */
+public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY, private val stepwise: Boolean = false) {
     private val times = LongArray(capacity)
     private val values = arrayOfNulls<Any?>(capacity)
     private var count = 0
@@ -32,7 +36,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
             if (isIdleGap(gap)) {
                 largestGapMilliseconds *= GAP_DECAY
             } else {
-                largestGapMilliseconds = maxOf(gap, largestGapMilliseconds * GAP_DECAY)
+                if (!stepwise) largestGapMilliseconds = maxOf(gap, largestGapMilliseconds * GAP_DECAY)
                 typicalGapMilliseconds = if (typicalGapMilliseconds == 0.0) gap else typicalGapMilliseconds * (1 - TYPICAL_GAP_WEIGHT) + gap * TYPICAL_GAP_WEIGHT
             }
         }
@@ -53,7 +57,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
         if (renderTimeMilliseconds >= newestTime) {
             val extrapolation = renderTimeMilliseconds - newestTime
             val previousTime = timeAt(count - 2)
-            if (extrapolation == 0L || newestTime == previousTime || maximumExtrapolationMilliseconds <= 0L) return valueAt(count - 1)
+            if (extrapolation == 0L || newestTime == previousTime || maximumExtrapolationMilliseconds <= 0L || stepwise) return valueAt(count - 1)
             val forward = minOf(extrapolation, maximumExtrapolationMilliseconds)
             val extrapolated = interpolator.interpolate(valueAt(count - 2), valueAt(count - 1), 1.0 + forward.toDouble() / (newestTime - previousTime))
             if (extrapolation <= maximumExtrapolationMilliseconds) return extrapolated
@@ -75,7 +79,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
     }
 
     private fun isIdleGap(gapMilliseconds: Double): Boolean =
-        typicalGapMilliseconds > 0.0 && gapMilliseconds > typicalGapMilliseconds * IDLE_GAP_FACTOR
+        typicalGapMilliseconds > 0.0 && gapMilliseconds > typicalGapMilliseconds * (if (stepwise) STEPWISE_IDLE_GAP_FACTOR else IDLE_GAP_FACTOR)
 
     public fun clear() {
         count = 0
@@ -95,6 +99,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
         public const val GAP_DECAY: Double = 0.95
         public const val MAXIMUM_RECOMMENDED_DELAY_MILLISECONDS: Long = 250
         public const val IDLE_GAP_FACTOR: Double = 4.0
+        public const val STEPWISE_IDLE_GAP_FACTOR: Double = 1.5
         public const val TYPICAL_GAP_WEIGHT: Double = 0.1
     }
 }

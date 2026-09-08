@@ -5,6 +5,7 @@ import ch.hippmann.godot.replication.sync.synced
 import godot.annotation.Script
 import godot.api.Label3D
 import godot.api.StaticBody3D
+import godot.api.Tween
 import godot.core.NodePath
 import godot.core.Vector3
 import godot.extension.api.getNodeAs
@@ -35,7 +36,8 @@ class Crate : StaticBody3D() {
     /** Only the owner moves the crate; [Interactions] takes ownership first when needed. The slide is what the others see, tick by tick. */
     fun push(direction: Vector3) {
         pushes++
-        createTween()?.tweenProperty(this, NodePath("position"), position + direction * PUSH_DISTANCE, PUSH_SECONDS)
+        // Physics time, so every replication tick sees a fresh position instead of a skipped one on stalled frames.
+        createTween()?.setProcessMode(Tween.TweenProcessMode.PHYSICS)?.tweenProperty(this, NodePath("position"), position + direction * PUSH_DISTANCE, PUSH_SECONDS)
     }
 
     companion object {

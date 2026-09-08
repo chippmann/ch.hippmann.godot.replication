@@ -62,6 +62,19 @@ class InterpolationBufferTest {
     }
 
     @Test
+    fun `a stepwise stream never raises the delay and holds between changes`() {
+        val buffer = InterpolationBuffer<Double>(stepwise = true)
+        buffer.push(1000, 0.0)
+        buffer.push(1016, 1.0)
+        buffer.push(1032, 2.0)
+        buffer.push(1080, 3.0)
+        assertEquals(0, buffer.recommendedDelayMilliseconds)
+        assertEquals(2.0, buffer.sample(1050, linear, 100)!!)
+        assertEquals(2.5, buffer.sample(1072, linear, 100)!!, 0.05)
+        assertEquals(3.0, buffer.sample(1200, linear, 100)!!)
+    }
+
+    @Test
     fun `out of order and overflowing samples are handled`() {
         val buffer = InterpolationBuffer<Double>(capacity = 3)
         assertNull(buffer.sample(0, linear, 0))
