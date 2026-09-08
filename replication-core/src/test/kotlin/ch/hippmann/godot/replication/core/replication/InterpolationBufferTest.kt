@@ -40,8 +40,25 @@ class InterpolationBufferTest {
         assertEquals(150, buffer.recommendedDelayMilliseconds)
         repeat(60) { index -> buffer.push(1166 + index * 33L, index.toDouble()) }
         assertEquals(49, buffer.recommendedDelayMilliseconds)
-        buffer.push(9000, 0.0)
-        assertEquals(InterpolationBuffer.MAXIMUM_RECOMMENDED_DELAY_MILLISECONDS, buffer.recommendedDelayMilliseconds)
+        buffer.push(1166 + 60 * 33L + 90, 0.0)
+        assertEquals(184, buffer.recommendedDelayMilliseconds)
+    }
+
+    @Test
+    fun `a stream that resumes after idling neither jumps ahead nor raises the delay`() {
+        val buffer = InterpolationBuffer<Double>()
+        buffer.push(1000, 0.0)
+        buffer.push(1033, 1.0)
+        buffer.push(1066, 2.0)
+        buffer.push(1099, 2.0)
+        val delayBeforeIdle = buffer.recommendedDelayMilliseconds
+        buffer.push(5000, 2.0)
+        buffer.push(5033, 3.0)
+        assertEquals(delayBeforeIdle, buffer.recommendedDelayMilliseconds)
+        assertEquals(2.0, buffer.sample(4990, linear, 100)!!)
+        assertEquals(2.0, buffer.sample(5000, linear, 100)!!)
+        assertEquals(2.5, buffer.sample(5016, linear, 100)!!, 0.05)
+        assertEquals(3.0, buffer.sample(5033, linear, 100)!!)
     }
 
     @Test

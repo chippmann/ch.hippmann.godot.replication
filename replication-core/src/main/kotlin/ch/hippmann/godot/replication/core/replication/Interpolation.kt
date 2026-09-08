@@ -18,6 +18,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
         get() = count == 0
 
     private var largestGapMilliseconds = 0.0
+    private var typicalGapMilliseconds = 0.0
 
     /** Delay that keeps rendering behind the gaps this stream actually showed lately; jitter and loss raise it, calm streams let it sink. */
     public val recommendedDelayMilliseconds: Long
@@ -27,7 +28,13 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
         if (count > 0 && timeMilliseconds < timeAt(count - 1)) return
         if (count > 0) {
             val gap = (timeMilliseconds - timeAt(count - 1)).toDouble()
-            largestGapMilliseconds = maxOf(gap, largestGapMilliseconds * GAP_DECAY)
+            // A stream that paused resumes with one huge gap; that is idleness, not jitter, and must not inflate the delay.
+            if (isIdleGap(gap)) {
+                largestGapMilliseconds *= GAP_DECAY
+            } else {
+                largestGapMilliseconds = maxOf(gap, largestGapMilliseconds * GAP_DECAY)
+                typicalGapMilliseconds = if (typicalGapMilliseconds == 0.0) gap else typicalGapMilliseconds * (1 - TYPICAL_GAP_WEIGHT) + gap * TYPICAL_GAP_WEIGHT
+            }
         }
         if (count == capacity) {
             start = (start + 1) % capacity
@@ -56,16 +63,25 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
         }
         var index = 1
         while (timeAt(index) < renderTimeMilliseconds) index++
-        val fromTime = timeAt(index - 1)
+        var fromTime = timeAt(index - 1)
         val toTime = timeAt(index)
+        // Across an idle gap the value stayed where it was until one typical interval before the new sample.
+        if (isIdleGap((toTime - fromTime).toDouble())) {
+            fromTime = toTime - typicalGapMilliseconds.toLong()
+            if (renderTimeMilliseconds <= fromTime) return valueAt(index - 1)
+        }
         val weight = if (toTime == fromTime) 1.0 else (renderTimeMilliseconds - fromTime).toDouble() / (toTime - fromTime)
         return interpolator.interpolate(valueAt(index - 1), valueAt(index), weight)
     }
+
+    private fun isIdleGap(gapMilliseconds: Double): Boolean =
+        typicalGapMilliseconds > 0.0 && gapMilliseconds > typicalGapMilliseconds * IDLE_GAP_FACTOR
 
     public fun clear() {
         count = 0
         start = 0
         largestGapMilliseconds = 0.0
+        typicalGapMilliseconds = 0.0
     }
 
     private fun timeAt(offset: Int): Long = times[(start + offset) % capacity]
@@ -78,5 +94,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
         public const val GAP_SAFETY_FACTOR: Double = 1.5
         public const val GAP_DECAY: Double = 0.95
         public const val MAXIMUM_RECOMMENDED_DELAY_MILLISECONDS: Long = 250
+        public const val IDLE_GAP_FACTOR: Double = 4.0
+        public const val TYPICAL_GAP_WEIGHT: Double = 0.1
     }
 }
