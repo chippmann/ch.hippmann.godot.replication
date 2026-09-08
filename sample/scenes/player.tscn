@@ -10,6 +10,10 @@ material = SubResource("body_material")
 radius = 0.4
 height = 1.6
 
+[sub_resource type="CapsuleShape3D" id="body_shape"]
+radius = 0.4
+height = 1.6
+
 [sub_resource type="StandardMaterial3D" id="visor_material"]
 albedo_color = Color(0.1, 0.1, 0.12, 1)
 
@@ -17,12 +21,16 @@ albedo_color = Color(0.1, 0.1, 0.12, 1)
 material = SubResource("visor_material")
 size = Vector3(0.5, 0.18, 0.2)
 
-[node name="Player" type="Node3D"]
+[node name="Player" type="CharacterBody3D"]
 script = ExtResource("1_player")
 
 [node name="Body" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 mesh = SubResource("body_mesh")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("body_shape")
 
 [node name="Visor" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, -0.35)

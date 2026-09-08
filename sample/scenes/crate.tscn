@@ -9,12 +9,19 @@ albedo_color = Color(0.72, 0.48, 0.2, 1)
 material = SubResource("crate_material")
 size = Vector3(1.2, 1.2, 1.2)
 
-[node name="Crate" type="Node3D"]
+[sub_resource type="BoxShape3D" id="crate_shape"]
+size = Vector3(1.2, 1.2, 1.2)
+
+[node name="Crate" type="StaticBody3D"]
 script = ExtResource("1_crate")
 
 [node name="Box" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 mesh = SubResource("crate_mesh")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("crate_shape")
 
 [node name="Tag" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)

@@ -16,6 +16,9 @@ albedo_color = Color(0.85, 0.35, 0.25, 1)
 material = SubResource("panel_material")
 size = Vector3(5, 3.6, 0.3)
 
+[sub_resource type="BoxShape3D" id="panel_shape"]
+size = Vector3(5, 3.6, 0.3)
+
 [node name="Door" type="Node3D"]
 script = ExtResource("1_door")
 
@@ -23,9 +26,14 @@ script = ExtResource("1_door")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.8, 0)
 mesh = SubResource("frame_mesh")
 
-[node name="Panel" type="MeshInstance3D" parent="."]
+[node name="Panel" type="AnimatableBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Panel"]
 mesh = SubResource("panel_mesh")
+
+[node name="Shape" type="CollisionShape3D" parent="Panel"]
+shape = SubResource("panel_shape")
 
 [node name="Tag" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.4, 0)

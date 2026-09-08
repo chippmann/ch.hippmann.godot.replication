@@ -18,12 +18,21 @@ albedo_color = Color(0.36, 0.4, 0.42, 1)
 material = SubResource("wall_material")
 size = Vector3(0.6, 5, 40)
 
+[sub_resource type="BoxShape3D" id="side_wall_shape"]
+size = Vector3(0.6, 5, 40)
+
 [sub_resource type="BoxMesh" id="back_wall_mesh"]
 material = SubResource("wall_material")
 size = Vector3(30, 5, 0.6)
 
+[sub_resource type="BoxShape3D" id="back_wall_shape"]
+size = Vector3(30, 5, 0.6)
+
 [sub_resource type="BoxMesh" id="front_wall_mesh"]
 material = SubResource("wall_material")
+size = Vector3(12, 5, 0.6)
+
+[sub_resource type="BoxShape3D" id="front_wall_shape"]
 size = Vector3(12, 5, 0.6)
 
 [node name="Hangar" type="Node3D"]
@@ -32,25 +41,50 @@ script = ExtResource("1_hangar")
 [node name="Floor" type="MeshInstance3D" parent="."]
 mesh = SubResource("floor_mesh")
 
-[node name="WallWest" type="MeshInstance3D" parent="."]
+[node name="WallWest" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 2.5, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallWest"]
 mesh = SubResource("side_wall_mesh")
 
-[node name="WallEast" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="WallWest"]
+shape = SubResource("side_wall_shape")
+
+[node name="WallEast" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 2.5, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallEast"]
 mesh = SubResource("side_wall_mesh")
 
-[node name="WallBack" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="WallEast"]
+shape = SubResource("side_wall_shape")
+
+[node name="WallBack" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 20)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallBack"]
 mesh = SubResource("back_wall_mesh")
 
-[node name="WallFrontWest" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="WallBack"]
+shape = SubResource("back_wall_shape")
+
+[node name="WallFrontWest" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 2.5, -20)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallFrontWest"]
 mesh = SubResource("front_wall_mesh")
 
-[node name="WallFrontEast" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="WallFrontWest"]
+shape = SubResource("front_wall_shape")
+
+[node name="WallFrontEast" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 2.5, -20)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallFrontEast"]
 mesh = SubResource("front_wall_mesh")
+
+[node name="Shape" type="CollisionShape3D" parent="WallFrontEast"]
+shape = SubResource("front_wall_shape")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.8660254, -0.3535534, 0.3535534, 0, 0.7071068, 0.7071068, -0.5, -0.6123724, 0.6123724, 0, 12, 0)

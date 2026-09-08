@@ -9,6 +9,7 @@ import ch.hippmann.godot.replication.sync.synced
 import ch.hippmann.godot.replication.transport.TransportLog
 import godot.annotation.Script
 import godot.api.Camera3D
+import godot.api.CharacterBody3D
 import godot.api.Input
 import godot.api.InputEvent
 import godot.api.Label3D
@@ -20,7 +21,7 @@ import godot.core.Vector3
 import godot.extension.api.getNodeAs
 
 @Script
-class Player : Node3D(), NetworkConfigured {
+class Player : CharacterBody3D(), NetworkConfigured {
     var health by synced(100)
     var displayName by synced("")
     val positionSync = synced(::position) { unreliable(); continuous(rate = 30); interpolate() }
@@ -66,12 +67,14 @@ class Player : Node3D(), NetworkConfigured {
 
     override fun _physicsProcess(delta: Double) {
         if (!Network.isOwner(this)) return
-        if (speed != 0.0) position = position + Vector3(speed * delta, 0.0, 0.0)
         val input = Input.getVector("move_left", "move_right", "move_forward", "move_back")
+        var motion = Vector3(speed, 0.0, 0.0)
         if (input.length() > 0.01) {
             facing = Vector3(input.x, 0.0, input.y).normalized()
-            position = position + facing * (WALK_SPEED * delta)
+            motion += facing * WALK_SPEED
         }
+        velocity = motion
+        moveAndSlide()
     }
 
     override fun _unhandledInput(event: InputEvent) {

@@ -4,12 +4,12 @@ import ch.hippmann.godot.replication.Network
 import ch.hippmann.godot.replication.sync.synced
 import godot.annotation.Script
 import godot.api.Label3D
-import godot.api.Node3D
+import godot.api.StaticBody3D
 import godot.core.Vector3
 import godot.extension.api.getNodeAs
 
 @Script
-class Crate : Node3D() {
+class Crate : StaticBody3D() {
     var pushes by synced(0)
     var label by synced("")
     val motion = synced(::position) { interpolate() }

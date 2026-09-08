@@ -6,6 +6,7 @@ import ch.hippmann.godot.replication.sample.Arguments
 import ch.hippmann.godot.replication.sample.game.GameSession
 import ch.hippmann.godot.replication.sample.game.Hud
 import ch.hippmann.godot.replication.sample.lobby.LobbyScreen
+import ch.hippmann.godot.replication.sample.world.Crate
 import godot.annotation.Script
 import godot.api.Node
 import godot.core.Key
@@ -84,6 +85,7 @@ class UiTour : Node() {
         input.screenshot("4-arena")
         input.walk("move_left", 0.8)
         input.key(Key.SPACE)
+        input.await("the host's crate push") { Crate.all.any { crate -> crate.pushes > 0 } }
         input.waitSeconds(1.0)
         input.screenshot("5-arena-played")
         input.await("the hangar") { Network.level.value.scenePath == Hud.HANGAR && Network.level.value.started }

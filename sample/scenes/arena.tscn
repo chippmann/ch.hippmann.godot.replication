@@ -17,11 +17,17 @@ albedo_color = Color(0.42, 0.45, 0.52, 1)
 material = SubResource("pillar_material")
 size = Vector3(1.5, 4, 1.5)
 
+[sub_resource type="BoxShape3D" id="pillar_shape"]
+size = Vector3(1.5, 4, 1.5)
+
 [sub_resource type="StandardMaterial3D" id="edge_material"]
 albedo_color = Color(0.55, 0.2, 0.2, 1)
 
 [sub_resource type="BoxMesh" id="edge_mesh"]
 material = SubResource("edge_material")
+size = Vector3(44, 0.6, 0.6)
+
+[sub_resource type="BoxShape3D" id="edge_shape"]
 size = Vector3(44, 0.6, 0.6)
 
 [node name="Arena" type="Node3D"]
@@ -30,37 +36,77 @@ script = ExtResource("1_arena")
 [node name="Floor" type="MeshInstance3D" parent="."]
 mesh = SubResource("floor_mesh")
 
-[node name="EdgeNorth" type="MeshInstance3D" parent="."]
+[node name="EdgeNorth" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, -22)
+
+[node name="Mesh" type="MeshInstance3D" parent="EdgeNorth"]
 mesh = SubResource("edge_mesh")
 
-[node name="EdgeSouth" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="EdgeNorth"]
+shape = SubResource("edge_shape")
+
+[node name="EdgeSouth" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 22)
+
+[node name="Mesh" type="MeshInstance3D" parent="EdgeSouth"]
 mesh = SubResource("edge_mesh")
 
-[node name="EdgeWest" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="EdgeSouth"]
+shape = SubResource("edge_shape")
+
+[node name="EdgeWest" type="StaticBody3D" parent="."]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -22, 0.3, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="EdgeWest"]
 mesh = SubResource("edge_mesh")
 
-[node name="EdgeEast" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="EdgeWest"]
+shape = SubResource("edge_shape")
+
+[node name="EdgeEast" type="StaticBody3D" parent="."]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 22, 0.3, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="EdgeEast"]
 mesh = SubResource("edge_mesh")
 
-[node name="PillarA" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="EdgeEast"]
+shape = SubResource("edge_shape")
+
+[node name="PillarA" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2, -8)
+
+[node name="Mesh" type="MeshInstance3D" parent="PillarA"]
 mesh = SubResource("pillar_mesh")
 
-[node name="PillarB" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="PillarA"]
+shape = SubResource("pillar_shape")
+
+[node name="PillarB" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, -8)
+
+[node name="Mesh" type="MeshInstance3D" parent="PillarB"]
 mesh = SubResource("pillar_mesh")
 
-[node name="PillarC" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="PillarB"]
+shape = SubResource("pillar_shape")
+
+[node name="PillarC" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 2, 8)
+
+[node name="Mesh" type="MeshInstance3D" parent="PillarC"]
 mesh = SubResource("pillar_mesh")
 
-[node name="PillarD" type="MeshInstance3D" parent="."]
+[node name="Shape" type="CollisionShape3D" parent="PillarC"]
+shape = SubResource("pillar_shape")
+
+[node name="PillarD" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 8)
+
+[node name="Mesh" type="MeshInstance3D" parent="PillarD"]
 mesh = SubResource("pillar_mesh")
+
+[node name="Shape" type="CollisionShape3D" parent="PillarD"]
+shape = SubResource("pillar_shape")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.8660254, -0.3535534, 0.3535534, 0, 0.7071068, 0.7071068, -0.5, -0.6123724, 0.6123724, 0, 12, 0)
