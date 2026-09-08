@@ -62,6 +62,7 @@ class UiTour : Node() {
         input.key(Key.SPACE)
         input.waitSeconds(0.4)
         input.key(Key.E)
+        input.screenshot("5a-crate-mid-push")
         input.waitSeconds(1.0)
         input.screenshot("5-arena-played")
         input.click(session.hud.switchLevelButton)
@@ -86,6 +87,7 @@ class UiTour : Node() {
         input.walk("move_left", 0.8)
         input.key(Key.SPACE)
         input.await("the host's crate push") { Crate.all.any { crate -> crate.pushes > 0 } }
+        input.screenshot("5a-crate-mid-push")
         input.waitSeconds(1.0)
         input.screenshot("5-arena-played")
         input.await("the hangar") { Network.level.value.scenePath == Hud.HANGAR && Network.level.value.started }
