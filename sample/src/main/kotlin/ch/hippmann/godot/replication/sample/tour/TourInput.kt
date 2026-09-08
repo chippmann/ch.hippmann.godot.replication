@@ -17,13 +17,17 @@ import kotlinx.coroutines.delay
 /** Mouse and keyboard events fed through Godot's input pipeline, plus screenshots of the drawn viewport. */
 class TourInput(private val node: Node, private val role: String, private val screenshotDirectory: String) {
 
-    suspend fun click(control: Control) {
-        val center = control.getGlobalRect().getCenter()
-        Input.parseInputEvent(InputEventMouseMotion().apply { position = center; globalPosition = center })
+    suspend fun click(control: Control) = clickAt(control.getGlobalRect().getCenter())
+
+    /** Clicks [offset] pixels from the control's top left corner, for lists whose first row matters. */
+    suspend fun clickInside(control: Control, offset: Vector2) = clickAt(control.getGlobalRect().position + offset)
+
+    private suspend fun clickAt(point: Vector2) {
+        Input.parseInputEvent(InputEventMouseMotion().apply { position = point; globalPosition = point })
         awaitNextFrame()
-        Input.parseInputEvent(mouseButton(center, pressed = true))
+        Input.parseInputEvent(mouseButton(point, pressed = true))
         awaitNextFrame()
-        Input.parseInputEvent(mouseButton(center, pressed = false))
+        Input.parseInputEvent(mouseButton(point, pressed = false))
         awaitNextFrame()
     }
 

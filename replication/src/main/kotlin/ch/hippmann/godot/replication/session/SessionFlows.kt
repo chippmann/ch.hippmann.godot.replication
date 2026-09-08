@@ -175,6 +175,7 @@ private suspend fun SessionRuntime.connectMember(member: MemberRecord): Boolean 
 internal suspend fun SessionRuntime.leave(reason: LeaveReason) {
     if (Network.state.value == NetworkState.Offline) return
     Network.setState(NetworkState.Leaving)
+    discovery.stopResponder()
     if (membership != null) {
         transport.broadcastMessage(Leave(reason))
         transport.flush()

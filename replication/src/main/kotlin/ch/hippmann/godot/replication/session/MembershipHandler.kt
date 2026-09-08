@@ -90,6 +90,7 @@ internal class MembershipHandler(private val runtime: SessionRuntime) {
         role.admissionFrozenUntil = nowMilliseconds() + ADMISSION_FREEZE_MILLISECONDS
         runtime.masterRole = role
         runtime.transport.broadcastMessage(MembershipUpdate(membership.epoch, membership.members.values.toList(), membership.nextJoinSequence))
+        if (runtime.configuration.enableDiscovery) runtime.startDiscoveryResponder()
     }
 
     private companion object {

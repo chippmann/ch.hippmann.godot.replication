@@ -16,21 +16,29 @@ class LanDiscovery(private val discoveryPort: Int) {
     private var responder: PacketPeerUDP? = null
     private var answerProvider: (() -> DiscoveryAnswer)? = null
 
+    private var nextBindAttemptMilliseconds = 0L
+
+    /** Binds the discovery port; when it is still held (a master that just left on this machine) [pump] keeps retrying. */
     fun startResponder(answer: () -> DiscoveryAnswer): Boolean {
+        answerProvider = answer
+        return bindResponder()
+    }
+
+    private fun bindResponder(): Boolean {
         val socket = PacketPeerUDP()
         val error = socket.bind(discoveryPort, "*")
         if (error != Error.OK) {
-            GD.printErr("Replication: LAN discovery unavailable, could not bind UDP port $discoveryPort: $error")
+            nextBindAttemptMilliseconds = System.currentTimeMillis() + BIND_RETRY_MILLISECONDS
             return false
         }
         responder = socket
-        answerProvider = answer
         return true
     }
 
     fun pump() {
-        val socket = responder ?: return
         val answer = answerProvider ?: return
+        if (responder == null && System.currentTimeMillis() >= nextBindAttemptMilliseconds) bindResponder()
+        val socket = responder ?: return
         while (socket.getAvailablePacketCount() > 0) {
             val bytes = socket.getPacket().toByteArray()
             val address = socket.getPacketIp()
@@ -82,5 +90,6 @@ class LanDiscovery(private val discoveryPort: Int) {
         const val BROADCAST_ADDRESS = "255.255.255.255"
         const val LOOPBACK_ADDRESS = "127.0.0.1"
         const val POLL_MILLISECONDS = 50L
+        const val BIND_RETRY_MILLISECONDS = 1_000L
     }
 }
