@@ -64,7 +64,7 @@ avatar, its properties and its movement to everyone, including members that join
 
 ```kotlin
 repositories { mavenCentral() }
-dependencies { implementation("ch.hippmann.godot:replication:1.0.0") }
+dependencies { implementation("ch.hippmann.godot:replication:0.1.0") }
 ```
 
 The Godot-JVM registrar picks up the library's two script classes (`ReplicationManager`, `ReplicationMeshPeer`)

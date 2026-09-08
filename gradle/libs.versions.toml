@@ -1,5 +1,5 @@
 [versions]
-replication = "1.0.0"
+replication = "0.1.0"
 jvmToolchain = "17"
 
 # The Godot-JVM Gradle plugin brings its own Kotlin plugin onto the build classpath, so this must match it exactly.

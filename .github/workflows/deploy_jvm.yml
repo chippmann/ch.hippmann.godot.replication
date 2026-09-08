@@ -1,4 +1,4 @@
-name: 🚀 Deploy Jvm
+name: Deploy Jvm
 
 on:
   workflow_call:
@@ -11,21 +11,16 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Clone
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
-          distribution: adopt-hotspot
+          distribution: temurin
           java-version: ${{ inputs.jvm-version }}
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
+      - uses: gradle/actions/setup-gradle@v6
 
-      - name: Publish
-        shell: sh
+      - name: Write the publishing credentials
         run: |
           echo "mavenCentralUsername=$MAVEN_CENTRAL_USERNAME" >> ~/.gradle/gradle.properties
           echo "mavenCentralPassword=$MAVEN_CENTRAL_PASSWORD" >> ~/.gradle/gradle.properties
@@ -38,6 +33,4 @@ jobs:
           GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
 
       - name: Publish
-        shell: sh
-        run: |
-          ./gradlew publish
+        run: ./gradlew :replication-core:publish :replication:publish --no-daemon
