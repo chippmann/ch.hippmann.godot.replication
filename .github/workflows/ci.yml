@@ -9,7 +9,7 @@ env:
   GODOT_VERSION: 4.7.2-stable
   # Commit of utopia-rise/godot-jvm the version catalog's snapshot is built from (branch fix/multiplayer-binding-bugs).
   GODOT_JVM_REPOSITORY: utopia-rise/godot-jvm
-  GODOT_JVM_REF: a43c87ac
+  GODOT_JVM_REF: a43c87ac8d2dabe731713761205cb1b5f08362ad
 
 jobs:
   binding:
