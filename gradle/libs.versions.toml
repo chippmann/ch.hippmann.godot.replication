@@ -1,0 +1,35 @@
+[versions]
+replication = "1.0.0"
+jvmToolchain = "17"
+
+# The Godot-JVM Gradle plugin brings its own Kotlin plugin onto the build classpath, so this must match it exactly.
+kotlin = "2.3.20"
+# Snapshot published from branch fix/multiplayer-binding-bugs (commit a43c87ac on origin/extension 0fd98fe6); replace with the release that contains those fixes.
+godotJvm = "1.0.0-dev3-a43c87a-SNAPSHOT"
+# Same version the Godot-JVM coroutine library depends on.
+kotlinxCoroutines = "1.10.1"
+kotlinxSerialization = "1.11.0" # https://github.com/Kotlin/kotlinx.serialization/releases
+junit = "6.1.3" # https://github.com/junit-team/junit-framework/releases
+mavenPublish = "0.37.0" # https://github.com/vanniktech/gradle-maven-publish-plugin/releases
+grgit = "5.3.3" # https://github.com/ajoberstar/grgit/releases
+
+[libraries]
+godot-common = { module = "com.utopia-rise:common", version.ref = "godotJvm" }
+godot-core = { module = "com.utopia-rise:godot-core-library-debug", version.ref = "godotJvm" }
+godot-api = { module = "com.utopia-rise:godot-api-library-debug", version.ref = "godotJvm" }
+godot-bootstrap = { module = "com.utopia-rise:godot-bootstrap-library-debug", version.ref = "godotJvm" }
+godot-extension = { module = "com.utopia-rise:godot-extension-library-debug", version.ref = "godotJvm" }
+godot-coroutines = { module = "com.utopia-rise:godot-coroutine-library-debug", version.ref = "godotJvm" }
+kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinxSerialization" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+maven-publish = { module = "com.vanniktech:gradle-maven-publish-plugin", version.ref = "mavenPublish" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+godot-jvm = { id = "com.utopia-rise.godot-jvm", version.ref = "godotJvm" }
+grgit = { id = "org.ajoberstar.grgit", version.ref = "grgit" }

@@ -1,0 +1,16 @@
+.gradle/
+build/
+.kotlin/
+.idea/
+*.iml
+out/
+.DS_Store
+
+# Godot-JVM generated and vendored files of the sample project
+sample/jvm/
+sample/.godot/
+sample/addons/jvm/libs/
+sample/export/
+
+# Logs written by the end-to-end harness
+end-to-end-tests/build/
