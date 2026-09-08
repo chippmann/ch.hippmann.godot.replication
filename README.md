@@ -121,7 +121,7 @@ The `PerformanceScenariosTest` suite prints these on every run and fails when th
 |---|---|
 | Reliable property change, owner to peer | 6 ms median, 7 ms p90 |
 | Unreliable stream value, owner to peer | 6 ms median, 7 ms p90 |
-| Interpolated position, shown behind the owner | 74 to 78 ms median (two ticks of delay plus sending; the delay grows on its own for gappy streams) |
+| Interpolated position, shown behind the owner | 74 to 78 ms median at 30 ticks, 49 ms at 60 ticks (two ticks of delay plus sending; the delay grows on its own for gappy streams) |
 | 150 nodes moving at 30 Hz, per receiving peer | 90 packets and 85 KB per second, about 50 ms of main thread time per second |
 | Same, on the owner sending to two peers | 180 packets and 170 KB per second, about 28 ms per second |
 

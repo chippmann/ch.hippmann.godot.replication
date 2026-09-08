@@ -29,6 +29,8 @@ class Main : Node() {
             addChild(runner)
             return
         }
+        // Hand play wants tight remote motion: 60 ticks keep the interpolation delay at two ticks, 33 ms.
+        Network.configure { tickRate = INTERACTIVE_TICK_RATE }
         val lobby = LobbyScreen()
         val session = GameSession()
         addChild(lobby)
@@ -42,5 +44,9 @@ class Main : Node() {
         if (arguments["tour"] != null) {
             addChild(UiTour().also { tour -> tour.lobby = lobby; tour.session = session; tour.arguments = arguments })
         }
+    }
+
+    private companion object {
+        const val INTERACTIVE_TICK_RATE = 60
     }
 }

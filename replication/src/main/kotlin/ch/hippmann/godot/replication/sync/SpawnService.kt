@@ -127,7 +127,8 @@ internal class SpawnService(private val transport: Transport, private val tree: 
         replica.ownershipPolicy = spawn.ownershipPolicy.toPolicy()
         node.name = spawn.name.asStringName()
         decodeSpawnData(replica, spawn.spawnData)
-        val receiveTime = FrameClock.nowMilliseconds
+        // Stamped one delay back so the first stream sample, stamped in the sender's clock, is never older than the spawn.
+        val receiveTime = FrameClock.nowMilliseconds - replica.interpolationDelayMilliseconds
         replica.readValues(ByteReader(spawn.initialState), schema.fullMask, receiveTime, applyEngineBindings = false)
         NodeRegistry.activator?.configure(replica, scenePlaced = false)
         NodeRegistry.activate(replica, spawn.networkId, spawn.owner)

@@ -81,6 +81,7 @@ internal class ReplicationRuntime(private val session: SessionRuntime) : Replica
     fun onDespawn(sender: PlayerId, despawn: Despawn): Unit = spawnService.onDespawn(sender, despawn)
 
     fun onMemberLeft(player: PlayerId) {
+        receiver.forgetPeer(player)
         tick.forgetPeer(player)
         ownership.onMemberLeft(player)
     }

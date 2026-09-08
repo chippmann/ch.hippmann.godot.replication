@@ -21,7 +21,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
 
     /** Delay that keeps rendering behind the gaps this stream actually showed lately; jitter and loss raise it, calm streams let it sink. */
     public val recommendedDelayMilliseconds: Long
-        get() = (largestGapMilliseconds * GAP_SAFETY_FACTOR).toLong()
+        get() = minOf((largestGapMilliseconds * GAP_SAFETY_FACTOR).toLong(), MAXIMUM_RECOMMENDED_DELAY_MILLISECONDS)
 
     public fun push(timeMilliseconds: Long, value: T) {
         if (count > 0 && timeMilliseconds < timeAt(count - 1)) return
@@ -46,10 +46,13 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
         if (renderTimeMilliseconds >= newestTime) {
             val extrapolation = renderTimeMilliseconds - newestTime
             val previousTime = timeAt(count - 2)
-            if (extrapolation == 0L || newestTime == previousTime) return valueAt(count - 1)
-            val clamped = minOf(extrapolation, maximumExtrapolationMilliseconds)
-            val weight = 1.0 + clamped.toDouble() / (newestTime - previousTime)
-            return interpolator.interpolate(valueAt(count - 2), valueAt(count - 1), weight)
+            if (extrapolation == 0L || newestTime == previousTime || maximumExtrapolationMilliseconds <= 0L) return valueAt(count - 1)
+            val forward = minOf(extrapolation, maximumExtrapolationMilliseconds)
+            val extrapolated = interpolator.interpolate(valueAt(count - 2), valueAt(count - 1), 1.0 + forward.toDouble() / (newestTime - previousTime))
+            if (extrapolation <= maximumExtrapolationMilliseconds) return extrapolated
+            // Past the allowance the guess eases back onto the last real value, so a stream that simply stopped rests where it ended.
+            val back = (extrapolation - maximumExtrapolationMilliseconds).toDouble() / maximumExtrapolationMilliseconds
+            return if (back >= 1.0) valueAt(count - 1) else interpolator.interpolate(extrapolated, valueAt(count - 1), back)
         }
         var index = 1
         while (timeAt(index) < renderTimeMilliseconds) index++
@@ -73,6 +76,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
     public companion object {
         public const val DEFAULT_CAPACITY: Int = 8
         public const val GAP_SAFETY_FACTOR: Double = 1.5
-        public const val GAP_DECAY: Double = 0.97
+        public const val GAP_DECAY: Double = 0.95
+        public const val MAXIMUM_RECOMMENDED_DELAY_MILLISECONDS: Long = 250
     }
 }

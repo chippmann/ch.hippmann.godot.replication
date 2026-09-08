@@ -9,11 +9,11 @@ import godot.annotation.Script
 import godot.api.Node3D
 import godot.core.Vector3
 
+/** Flies a straight line every peer computes from the spawn data alone; only the owner judges hits and despawns it. */
 @Script
 class Projectile : Node3D() {
     var velocity by synced(Vector3.ZERO)
     var shooter by synced(0)
-    val motion = synced(::position) { unreliable(); continuous(); interpolate() }
     val shot by spawnData<Shot>()
 
     private var age = 0.0
@@ -27,9 +27,9 @@ class Projectile : Node3D() {
     }
 
     override fun _physicsProcess(delta: Double) {
-        if (!Network.isOwner(this)) return
-        position += velocity * delta
         age += delta
+        if (shot.direction != Vector3.ZERO) position = shot.origin + shot.direction.normalized() * (SPEED * age)
+        if (!Network.isOwner(this)) return
         val victim = Player.byOwner.values.firstOrNull { player -> Network.ownerOf(player).value != shooter && player.position.distanceTo(position) < HIT_RADIUS }
         if (victim != null) {
             Network.send(HitMessage.serializer(), HitMessage(DAMAGE, shooter), Target.Owner(victim), reliable = true)

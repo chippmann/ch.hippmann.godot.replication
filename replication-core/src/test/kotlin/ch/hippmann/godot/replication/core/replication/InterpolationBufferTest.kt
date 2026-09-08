@@ -19,12 +19,29 @@ class InterpolationBufferTest {
     }
 
     @Test
-    fun `extrapolation is capped`() {
+    fun `extrapolation is capped and eases back onto the last sample`() {
         val buffer = InterpolationBuffer<Double>()
         buffer.push(1000, 0.0)
         buffer.push(1100, 10.0)
         assertEquals(15.0, buffer.sample(1150, linear, 100)!!)
-        assertEquals(20.0, buffer.sample(1500, linear, 100)!!)
+        assertEquals(20.0, buffer.sample(1200, linear, 100)!!)
+        assertEquals(15.0, buffer.sample(1250, linear, 100)!!)
+        assertEquals(10.0, buffer.sample(1500, linear, 100)!!)
+        assertEquals(10.0, buffer.sample(1500, linear, 0)!!)
+    }
+
+    @Test
+    fun `the recommended delay follows the largest recent gap`() {
+        val buffer = InterpolationBuffer<Double>()
+        buffer.push(1000, 0.0)
+        buffer.push(1033, 1.0)
+        assertEquals(49, buffer.recommendedDelayMilliseconds)
+        buffer.push(1133, 2.0)
+        assertEquals(150, buffer.recommendedDelayMilliseconds)
+        repeat(60) { index -> buffer.push(1166 + index * 33L, index.toDouble()) }
+        assertEquals(49, buffer.recommendedDelayMilliseconds)
+        buffer.push(9000, 0.0)
+        assertEquals(InterpolationBuffer.MAXIMUM_RECOMMENDED_DELAY_MILLISECONDS, buffer.recommendedDelayMilliseconds)
     }
 
     @Test

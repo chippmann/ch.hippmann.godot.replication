@@ -26,6 +26,7 @@ class ScenarioRunner : Node() {
                 Network.configure {
                     if (!context.isHost) joinPort = context.port
                     verboseTransportLogging = context.arguments["verbose-transport"] == "true"
+                    context.arguments.int("tick-rate", 0).takeIf { rate -> rate > 0 }?.let { rate -> tickRate = rate }
                     val preparationMilliseconds = context.arguments.long("level-preparation-milliseconds", 0)
                     if (preparationMilliseconds > 0) levelPreparation = { delay(preparationMilliseconds) }
                 }

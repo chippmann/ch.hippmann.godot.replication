@@ -24,7 +24,7 @@ import godot.extension.api.getNodeAs
 class Player : CharacterBody3D(), NetworkConfigured {
     var health by synced(100)
     var displayName by synced("")
-    val positionSync = synced(::position) { unreliable(); continuous(rate = 30); interpolate() }
+    val positionSync = synced(::position) { unreliable(); continuous(); interpolate() }
     val loadout by spawnData<Loadout>()
 
     /** Scenarios drive movement through this; humans use the input map. */

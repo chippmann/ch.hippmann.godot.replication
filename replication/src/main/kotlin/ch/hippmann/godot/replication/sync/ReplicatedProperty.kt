@@ -5,6 +5,7 @@ import ch.hippmann.godot.replication.core.codec.ByteWriter
 import ch.hippmann.godot.replication.core.replication.InterpolationBuffer
 import ch.hippmann.godot.replication.core.replication.Interpolator
 import ch.hippmann.godot.replication.core.replication.PropertyCodec
+import ch.hippmann.godot.replication.core.replication.SyncMode
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -37,10 +38,12 @@ abstract class ReplicatedProperty<T>(
 
     fun read(reader: ByteReader): T = codec.read(reader)
 
+    /** Only a continuous stream is worth guessing ahead on; an on change value that stopped arriving simply stopped changing. */
     protected fun sample(renderTimeMilliseconds: Long, maximumExtrapolationMilliseconds: Long): T? {
         val buffer = buffer ?: return null
         val interpolator = interpolator ?: return buffer.latest
-        return buffer.sample(renderTimeMilliseconds, interpolator, maximumExtrapolationMilliseconds)
+        val allowance = if (options.mode is SyncMode.Continuous) maximumExtrapolationMilliseconds else 0L
+        return buffer.sample(renderTimeMilliseconds, interpolator, allowance)
     }
 }
 
