@@ -41,12 +41,15 @@ class InterestDistanceScenario : Scenario {
         ScenarioLog.event("health_before", "healths" to remotes.map { player -> player.health }, "names" to remotes.map { player -> player.displayName })
         if (Network.localPlayerId == PlayerId(4)) {
             scenarioCheck(remotes.all { player -> player.health == 100 }) { "the far player must not receive state, saw ${remotes.map { it.health }}" }
+            // The near players flag ready once they verified that nothing of Lena arrived; only then does she walk into range.
+            runner.awaitUntil { Network.lobby.value.players.count { player -> player.ready } == 2 }
             local.position = Vector3(5.0, 0.0, 0.0)
             runner.awaitUntil { remotes.all { player -> player.health != 100 } }
             ScenarioLog.event("health_after", "healths" to remotes.map { player -> player.health }, "names" to remotes.map { player -> player.displayName })
         } else {
             scenarioCheck(remotes.single { Network.ownerOf(it) != PlayerId(4) }.health != 100) { "near players must exchange state" }
             scenarioCheck(remotes.single { Network.ownerOf(it) == PlayerId(4) }.health == 100) { "the far player's state must not arrive" }
+            Network.setReady(true)
             runner.awaitUntil { remotes.all { player -> player.health != 100 } }
             ScenarioLog.event("health_after", "healths" to remotes.map { player -> player.health })
         }

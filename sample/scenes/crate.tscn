@@ -2,5 +2,24 @@
 
 [ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/Crate.kt" id="1_crate"]
 
+[sub_resource type="StandardMaterial3D" id="crate_material"]
+albedo_color = Color(0.72, 0.48, 0.2, 1)
+
+[sub_resource type="BoxMesh" id="crate_mesh"]
+material = SubResource("crate_material")
+size = Vector3(1.2, 1.2, 1.2)
+
 [node name="Crate" type="Node3D"]
 script = ExtResource("1_crate")
+
+[node name="Box" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+mesh = SubResource("crate_mesh")
+
+[node name="Tag" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+pixel_size = 0.007
+billboard = 1
+no_depth_test = true
+font_size = 36
+outline_size = 8

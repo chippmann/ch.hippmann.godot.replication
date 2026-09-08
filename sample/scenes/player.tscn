@@ -2,5 +2,41 @@
 
 [ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/Player.kt" id="1_player"]
 
+[sub_resource type="StandardMaterial3D" id="body_material"]
+albedo_color = Color(0.85, 0.85, 0.85, 1)
+
+[sub_resource type="CapsuleMesh" id="body_mesh"]
+material = SubResource("body_material")
+radius = 0.4
+height = 1.6
+
+[sub_resource type="StandardMaterial3D" id="visor_material"]
+albedo_color = Color(0.1, 0.1, 0.12, 1)
+
+[sub_resource type="BoxMesh" id="visor_mesh"]
+material = SubResource("visor_material")
+size = Vector3(0.5, 0.18, 0.2)
+
 [node name="Player" type="Node3D"]
 script = ExtResource("1_player")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+mesh = SubResource("body_mesh")
+
+[node name="Visor" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, -0.35)
+mesh = SubResource("visor_mesh")
+
+[node name="NameTag" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.1, 0)
+pixel_size = 0.008
+billboard = 1
+no_depth_test = true
+font_size = 40
+outline_size = 10
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.7660444, 0.6427876, 0, -0.6427876, 0.7660444, 0, 9, 10)
+current = false
+fov = 60.0

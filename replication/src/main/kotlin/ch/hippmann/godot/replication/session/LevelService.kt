@@ -85,9 +85,16 @@ internal class LevelService(private val runtime: SessionRuntime) {
     fun unload() {
         stragglerTimer?.cancel()
         loading?.cancel()
-        levelNode?.queueFree()
-        levelNode = null
+        discardLevelNode()
         loadedSequence = 0
+    }
+
+    /** Leaves the tree at once so the next level can take the "Level" name before the old node is freed. */
+    private fun discardLevelNode() {
+        val node = levelNode ?: return
+        levelNode = null
+        node.queueFree()
+        node.getParent()?.removeChild(node)
     }
 
     private fun follow(state: LevelState) {
@@ -98,8 +105,7 @@ internal class LevelService(private val runtime: SessionRuntime) {
     private suspend fun load(state: LevelState) {
         val scenePath = state.scenePath ?: return
         if (loadedSequence == state.sequence) return
-        levelNode?.queueFree()
-        levelNode = null
+        discardLevelNode()
         val scene = ResourceLoader.awaitLoadAs<PackedScene>(scenePath)
         val node = scene?.instantiate()
         if (node == null) {

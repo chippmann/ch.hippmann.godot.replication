@@ -11,6 +11,9 @@ import ch.hippmann.godot.replication.diagnostics.NetworkStatistics
 import ch.hippmann.godot.replication.rpc.Received
 import ch.hippmann.godot.replication.rpc.Target
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.serializer
 import ch.hippmann.godot.replication.session.ReplicationManager
@@ -159,10 +162,13 @@ object Network {
         runtime.customMessages.send(runtime.transport, serializer, payload, target.resolve() - localPlayerId, reliable)
     }
 
-    /** Messages of type [T] from other members; subscribe before they are sent, the flow keeps no history. */
+    /** Messages of type [T] from other members, across sessions; subscribe before they are sent, the flow keeps no history. */
     inline fun <reified T : Any> messages(): Flow<Received<T>> = messages(serializer<T>())
 
-    fun <T> messages(serializer: KSerializer<T>): Flow<Received<T>> = runtime().customMessages.messages(serializer)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun <T> messages(serializer: KSerializer<T>): Flow<Received<T>> = state.flatMapLatest { current ->
+        if (current == NetworkState.Connected) runtime().customMessages.messages(serializer) else emptyFlow()
+    }
 
     suspend fun discoverLocalSessions(timeoutMilliseconds: Long = DISCOVERY_TIMEOUT_MILLISECONDS): List<DiscoveredSession> =
         LanDiscovery(configuration.discoveryPort).discover(timeoutMilliseconds)

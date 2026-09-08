@@ -12,32 +12,30 @@ subprojects {
 }
 
 val baseUrl = "github.com/chippmann/ch.hippmann.godot.replication"
-tasks {
-    val generateChangelog by registering {
-        group = "changelog"
+tasks.register("generateChangelog") {
+    group = "changelog"
 
-        doLast {
-            val tags = grgit.tag.list().reversed().filter { !it.name.endsWith("-SNAPSHOT") }
-            val fromTag = tags.getOrNull(1) ?: grgit.log().last()
-            val toTag = tags.getOrNull(0)
-            val changeLogPrefix = """
-                **Changelog:**
+    doLast {
+        val tags = grgit.tag.list().reversed().filter { !it.name.endsWith("-SNAPSHOT") }
+        val fromTag = tags.getOrNull(1) ?: grgit.log().last()
+        val toTag = tags.getOrNull(0)
+        val changeLogPrefix = """
+            **Changelog:**
 
-            """.trimIndent()
+        """.trimIndent()
 
-            val changelogString = grgit.log {
-                range(fromTag, toTag?.name)
-            }
-                .joinToString(separator = "\n", prefix = changeLogPrefix) { commit ->
-                    val link = "https://$baseUrl/commit/${commit.id}"
-                    "- [${commit.abbreviatedId}]($link) ${commit.shortMessage}"
-                }
-
-            project.layout.buildDirectory.asFile.get().resolve("changelog.md").also {
-                if (!it.parentFile.exists()) {
-                    it.parentFile.mkdirs()
-                }
-            }.writeText(changelogString)
+        val changelogString = grgit.log {
+            range(fromTag, toTag?.name)
         }
+            .joinToString(separator = "\n", prefix = changeLogPrefix) { commit ->
+                val link = "https://$baseUrl/commit/${commit.id}"
+                "- [${commit.abbreviatedId}]($link) ${commit.shortMessage}"
+            }
+
+        project.layout.buildDirectory.asFile.get().resolve("changelog.md").also {
+            if (!it.parentFile.exists()) {
+                it.parentFile.mkdirs()
+            }
+        }.writeText(changelogString)
     }
 }

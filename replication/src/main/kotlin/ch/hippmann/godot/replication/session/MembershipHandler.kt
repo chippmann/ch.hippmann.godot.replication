@@ -1,5 +1,7 @@
 package ch.hippmann.godot.replication.session
 
+import ch.hippmann.godot.replication.Network
+import ch.hippmann.godot.replication.NetworkState
 import ch.hippmann.godot.replication.NetworkEvent
 import ch.hippmann.godot.replication.core.session.PlayerId
 import ch.hippmann.godot.replication.core.wire.Leave
@@ -30,6 +32,8 @@ internal class MembershipHandler(private val runtime: SessionRuntime) {
 
     fun onLinkClosed(link: EnetLink) {
         val player = link.player ?: return
+        // Links close one by one while this member leaves; the others did not time out.
+        if (Network.state.value == NetworkState.Leaving) return
         removeMember(player, LeaveReason.TIMEOUT)
         runtime.meshPeer.announcePeerLeft(player)
         runtime.publishSession()

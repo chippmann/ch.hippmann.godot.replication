@@ -95,7 +95,7 @@ root belong to the master, so `@Rpc(rpcMode = AUTHORITY)` keeps its meaning.
 - `replication-core`: pure Kotlin, no Godot dependency: binary codec, wire protocol, membership and election
   logic, delta packets, interpolation, simulation. Unit tested with JUnit.
 - `replication`: the Godot-JVM library (transport over ENet, session flows, replication engine, public API).
-- `sample`: a Godot 4.7 project with a lobby screen and the scripted end-to-end scenarios.
+- `sample`: a Godot 4.7 project you can play by hand (lobby, two levels, movement, shooting, crates and doors) that also hosts the scripted end-to-end scenarios and a self driving UI tour.
 - `end-to-end-tests`: JUnit tests that launch several headless Godot processes on localhost per scenario.
 
 ## Running the tests
@@ -106,8 +106,11 @@ root belong to the master, so `@Rpc(rpcMode = AUTHORITY)` keeps its meaning.
 ```
 
 `GODOT_EDITOR` points at the Godot editor binary (default `godot` on the path). Each scenario's process output
-lands in `end-to-end-tests/build/end-to-end-logs/<scenario>/<player>.log`. The sample can also be played by
-hand: `godot --path sample` twice, host in one window and join in the other.
+lands in `end-to-end-tests/build/end-to-end-logs/<scenario>/<player>.log`. The sample is meant to be played by
+hand: `godot --path sample` twice, host in one window and join in the other, press Ready, then the master starts a
+level. WASD moves, click or space shoots, E pushes a crate or opens a door (taking it over first), Escape leaves.
+`godot --path sample -- --tour=host --screenshot-dir=/tmp/shots` (and `--tour=join` in a second instance) drives
+the same screens through real mouse and keyboard events and saves a screenshot of every step.
 
 ## Protocol notes
 

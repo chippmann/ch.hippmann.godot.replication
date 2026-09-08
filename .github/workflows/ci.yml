@@ -124,3 +124,4 @@ jobs:
             end-to-end-tests/build/end-to-end-logs
             end-to-end-tests/build/reports
             replication-core/build/reports
+            sample/build/import-project.log

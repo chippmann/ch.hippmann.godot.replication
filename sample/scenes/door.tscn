@@ -2,5 +2,35 @@
 
 [ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/Door.kt" id="1_door"]
 
+[sub_resource type="StandardMaterial3D" id="frame_material"]
+albedo_color = Color(0.3, 0.32, 0.38, 1)
+
+[sub_resource type="BoxMesh" id="frame_mesh"]
+material = SubResource("frame_material")
+size = Vector3(6, 0.4, 0.6)
+
+[sub_resource type="StandardMaterial3D" id="panel_material"]
+albedo_color = Color(0.85, 0.35, 0.25, 1)
+
+[sub_resource type="BoxMesh" id="panel_mesh"]
+material = SubResource("panel_material")
+size = Vector3(5, 3.6, 0.3)
+
 [node name="Door" type="Node3D"]
 script = ExtResource("1_door")
+
+[node name="Frame" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.8, 0)
+mesh = SubResource("frame_mesh")
+
+[node name="Panel" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+mesh = SubResource("panel_mesh")
+
+[node name="Tag" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.4, 0)
+pixel_size = 0.007
+billboard = 1
+no_depth_test = true
+font_size = 36
+outline_size = 8

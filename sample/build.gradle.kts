@@ -57,7 +57,9 @@ val importProject = tasks.register("importProject") {
             }
         }
         check(classCache.isFile && classCache.readText().contains("ReplicationManager")) {
-            "The import did not register the library classes, see ${logFile.get().asFile}"
+            val log = logFile.get().asFile
+            val tail = if (log.isFile) log.readLines().takeLast(40).joinToString("\n") else "(no log written)"
+            "The import did not register the library classes, see $log:\n$tail"
         }
     }
 }

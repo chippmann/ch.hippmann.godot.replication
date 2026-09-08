@@ -77,7 +77,8 @@ object NodeRegistry {
         replica.active = false
         replica.dirtyMask = 0
         pending.remove(replica)
-        if (replica.despawning || replica.spawnRecord != null) {
+        // A node on its way to be freed never re-enters the tree; keeping it pending would activate a dead object later.
+        if (replica.despawning || replica.spawnRecord != null || replica.node.isBeingFreed()) {
             replicas.remove(replica.node)
         } else {
             replica.networkId = null
@@ -85,6 +86,9 @@ object NodeRegistry {
         }
     }
 }
+
+/** `queue_free` flags only the node it was called on, so a child of a freed level looks alive until its ancestors are checked. */
+private fun Node.isBeingFreed(): Boolean = generateSequence(this) { node -> node.getParent() }.any { node -> node.isQueuedForDeletion() }
 
 internal interface ReplicaActivator {
     fun activate(replica: Replica)

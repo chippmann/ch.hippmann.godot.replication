@@ -9,8 +9,10 @@ import ch.hippmann.godot.replication.PlayerProfile
 import ch.hippmann.godot.replication.SpawnOptions
 import ch.hippmann.godot.replication.sample.world.Crate
 import ch.hippmann.godot.replication.sample.world.Projectile
+import ch.hippmann.godot.replication.sample.world.Shot
 import godot.api.Node
 import godot.api.PackedScene
+import godot.core.Vector3
 import godot.core.asStringName
 import godot.global.GD
 import kotlinx.coroutines.delay
@@ -36,7 +38,7 @@ class OwnerLeavePoliciesScenario : Scenario {
         val projectileScene = GD.load<PackedScene>("res://scenes/projectile.tscn") ?: throw ScenarioFailure("projectile scene missing")
         val crate = Network.spawn<Crate>(crateScene, world, options = SpawnOptions(ownerLeavePolicy = OwnerLeavePolicy.TransferToMaster))
         crate.label = "crate of ${context.playerName}"
-        Network.spawn<Projectile>(projectileScene, world, options = SpawnOptions(ownerLeavePolicy = OwnerLeavePolicy.Despawn))
+        Network.spawn<Projectile>(projectileScene, world, spawnData = Shot(Vector3.ZERO, Vector3.ZERO), options = SpawnOptions(ownerLeavePolicy = OwnerLeavePolicy.Despawn))
         runner.awaitUntil { crates(world).size == 3 && projectiles(world).size == 3 }
         ScenarioLog.event("world_complete")
 

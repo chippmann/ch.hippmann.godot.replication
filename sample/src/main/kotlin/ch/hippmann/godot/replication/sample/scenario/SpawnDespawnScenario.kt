@@ -4,6 +4,7 @@ import ch.hippmann.godot.replication.LobbyConfiguration
 import ch.hippmann.godot.replication.Network
 import ch.hippmann.godot.replication.PlayerProfile
 import ch.hippmann.godot.replication.sample.world.Projectile
+import ch.hippmann.godot.replication.sample.world.Shot
 import godot.api.Node
 import godot.api.PackedScene
 import godot.core.Vector3
@@ -28,7 +29,7 @@ class SpawnDespawnScenario : Scenario {
         if (Network.isMaster) {
             val scene = GD.load<PackedScene>("res://scenes/projectile.tscn") ?: throw ScenarioFailure("projectile scene missing")
             val projectiles = (1..PROJECTILES).map { index ->
-                Network.spawn<Projectile>(scene, world).apply {
+                Network.spawn<Projectile>(scene, world, spawnData = Shot(Vector3.ZERO, Vector3.ZERO)).apply {
                     velocity = Vector3(index.toDouble(), 0.0, 0.0)
                     shooter = Network.localPlayerId.value
                 }
