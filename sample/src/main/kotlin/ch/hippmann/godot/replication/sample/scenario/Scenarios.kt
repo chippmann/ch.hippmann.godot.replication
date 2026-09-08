@@ -22,6 +22,8 @@ object Scenarios {
         "interest_distance" -> InterestDistanceScenario()
         "custom_messages" -> CustomMessagesScenario()
         "simulated_latency" -> SimulatedLatencyScenario()
+        "state_latency" -> StateLatencyScenario()
+        "replication_load" -> ReplicationLoadScenario()
         else -> throw ScenarioFailure("Unknown scenario $name")
     }
 }

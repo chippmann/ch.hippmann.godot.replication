@@ -1,5 +1,6 @@
 package ch.hippmann.godot.replication.session
 
+import ch.hippmann.godot.replication.diagnostics.NetworkStatistics
 import ch.hippmann.godot.replication.NetworkConfiguration
 import ch.hippmann.godot.replication.sync.FrameClock
 import godot.annotation.Script
@@ -24,16 +25,20 @@ class ReplicationManager : Node() {
     override fun _process(delta: Double) {
         FrameClock.advance()
         val runtime = runtime ?: return
+        val started = System.nanoTime()
         runtime.pump()
         runtime.frame()
+        runtime.transport.counters.add(NetworkStatistics.PROCESSING_MICROSECONDS, (System.nanoTime() - started) / 1_000)
     }
 
     override fun _physicsProcess(delta: Double) {
         FrameClock.advance()
         val runtime = runtime ?: return
+        val started = System.nanoTime()
         runtime.pump()
         runtime.physicsStep()
         runtime.transport.flush()
+        runtime.transport.counters.add(NetworkStatistics.PROCESSING_MICROSECONDS, (System.nanoTime() - started) / 1_000)
     }
 
     override fun _exitTree() {

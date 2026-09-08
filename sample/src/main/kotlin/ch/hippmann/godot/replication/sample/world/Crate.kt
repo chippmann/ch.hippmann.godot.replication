@@ -5,6 +5,7 @@ import ch.hippmann.godot.replication.sync.synced
 import godot.annotation.Script
 import godot.api.Label3D
 import godot.api.StaticBody3D
+import godot.core.NodePath
 import godot.core.Vector3
 import godot.extension.api.getNodeAs
 
@@ -31,14 +32,15 @@ class Crate : StaticBody3D() {
         tag.text = "${label.ifBlank { name.toString() }}\npushed ${pushes}x, owner $owner"
     }
 
-    /** Only the owner moves the crate; [Interactions] takes ownership first when needed. */
+    /** Only the owner moves the crate; [Interactions] takes ownership first when needed. The slide is what the others see, tick by tick. */
     fun push(direction: Vector3) {
         pushes++
-        position += direction * PUSH_DISTANCE
+        createTween()?.tweenProperty(this, NodePath("position"), position + direction * PUSH_DISTANCE, PUSH_SECONDS)
     }
 
     companion object {
         const val PUSH_DISTANCE = 1.5
+        const val PUSH_SECONDS = 0.3
         val all = HashSet<Crate>()
     }
 }

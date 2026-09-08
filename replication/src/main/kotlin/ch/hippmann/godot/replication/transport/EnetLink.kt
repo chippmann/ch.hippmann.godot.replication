@@ -29,15 +29,19 @@ class EnetLink(internal val peer: ENetPacketPeer, val outbound: Boolean) : Link 
         if (graceful) peer.peerDisconnectLater() else peer.peerDisconnectNow()
     }
 
-    fun configureTimeouts(linkTimeoutMilliseconds: Int) {
+    fun configurePeer(linkTimeoutMilliseconds: Int) {
         peer.pingInterval(PING_INTERVAL_MILLISECONDS)
         peer.setTimeout(TIMEOUT_LIMIT, TIMEOUT_MINIMUM_MILLISECONDS, linkTimeoutMilliseconds)
+        // ENet drops unreliable packets whenever the round trip fluctuates; on a game loop that stalls per frame it threw away
+        // two thirds of the state stream on localhost. Never decelerate: the state stream is rate limited by the tick already.
+        peer.throttleConfigure(THROTTLE_INTERVAL_MILLISECONDS, ENetPacketPeer.PACKET_THROTTLE_SCALE.toInt(), 0)
     }
 
     override fun toString(): String = "EnetLink($remoteAddress:$remotePort, player=${player?.value}, outbound=$outbound)"
 
     private companion object {
         const val PING_INTERVAL_MILLISECONDS = 500
+        const val THROTTLE_INTERVAL_MILLISECONDS = 5_000
         const val TIMEOUT_LIMIT = 8
         const val TIMEOUT_MINIMUM_MILLISECONDS = 2_000
     }

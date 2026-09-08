@@ -42,7 +42,7 @@ internal class ReplicationRuntime(private val session: SessionRuntime) : Replica
     }
 
     override fun configure(replica: Replica, scenePlaced: Boolean) {
-        replica.interpolationDelayMilliseconds = session.configuration.interpolationDelayMilliseconds.toLong()
+        replica.interpolationDelayMilliseconds = session.configuration.effectiveInterpolationDelayMilliseconds.toLong()
         val node = replica.node as? NetworkConfigured ?: return
         val configuration = NodeNetworkConfiguration().also(node::configureNetwork)
         if (scenePlaced) {

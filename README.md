@@ -18,6 +18,7 @@ the lobby, level coordination, node ownership and property replication; a game o
 - Interest management by distance or custom filter, per second statistics, and a network simulation
   (latency, jitter, loss) for testing.
 - One binary packet per peer per tick; Godot math types are pure Kotlin so replication costs no JNI per property.
+  ENet's unreliable packet throttle is switched off on every link, so a stuttering frame never silently thins the state stream.
 
 ## Hello multiplayer
 
@@ -111,6 +112,18 @@ hand: `godot --path sample` twice, host in one window and join in the other, pre
 level. WASD moves, click or space shoots, E pushes a crate or opens a door (taking it over first), Escape leaves.
 `godot --path sample -- --tour=host --screenshot-dir=/tmp/shots` (and `--tour=join` in a second instance) drives
 the same screens through real mouse and keyboard events and saves a screenshot of every step.
+
+## Measured on one machine (2026-09-08)
+
+The `PerformanceScenariosTest` suite prints these on every run and fails when they degrade badly:
+
+| What | Value |
+|---|---|
+| Reliable property change, owner to peer | 6 ms median, 7 ms p90 |
+| Unreliable stream value, owner to peer | 6 ms median, 7 ms p90 |
+| Interpolated position, shown behind the owner | 74 to 78 ms median (two ticks of delay plus sending; the delay grows on its own for gappy streams) |
+| 150 nodes moving at 30 Hz, per receiving peer | 90 packets and 85 KB per second, about 50 ms of main thread time per second |
+| Same, on the owner sending to two peers | 180 packets and 170 KB per second, about 28 ms per second |
 
 ## Protocol notes
 

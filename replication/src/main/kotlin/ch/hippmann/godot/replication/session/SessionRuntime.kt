@@ -123,6 +123,7 @@ internal class SessionRuntime(
                 ticks = counters[NetworkStatistics.TICKS],
                 activeReplicas = NodeRegistry.active.size,
                 droppedEntries = counters[NetworkStatistics.DROPPED_ENTRIES],
+                processingMilliseconds = counters[NetworkStatistics.PROCESSING_MICROSECONDS] / 1_000.0,
                 roundTripMilliseconds = roundTrips,
                 packetLoss = losses,
             ),

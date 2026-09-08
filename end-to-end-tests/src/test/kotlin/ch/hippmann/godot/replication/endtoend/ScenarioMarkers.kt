@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
@@ -12,6 +13,8 @@ data class ScenarioEvent(val name: String, val player: Int, val fields: JsonObje
     fun string(key: String): String? = (fields[key] as? JsonPrimitive)?.contentOrNull
 
     fun int(key: String): Int? = (fields[key] as? JsonPrimitive)?.intOrNull
+
+    fun double(key: String): Double? = (fields[key] as? JsonPrimitive)?.doubleOrNull
 
     fun ints(key: String): List<Int> = fields[key]?.jsonArray?.mapNotNull { element -> element.jsonPrimitive.intOrNull } ?: emptyList()
 }

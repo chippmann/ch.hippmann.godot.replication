@@ -10,7 +10,8 @@ class NetworkConfiguration {
     var enableDiscovery: Boolean = true
     var tickRate: Int = 30
     var rpcChannels: Int = 1
-    var interpolationDelayMilliseconds: Int = 100
+    /** Least delay behind the newest sample for interpolated values; 0 means two ticks of [tickRate]. A gappy stream raises its own delay. */
+    var interpolationDelayMilliseconds: Int = 0
     var connectTimeoutMilliseconds: Long = 5_000
     var joinTimeoutMilliseconds: Long = 15_000
     var meshTimeoutMilliseconds: Long = 10_000
@@ -21,6 +22,9 @@ class NetworkConfiguration {
     var levelParentPath: String = "/root"
     /** Runs after a level was added and before this member reports it loaded, for asset warm up and the like. */
     var levelPreparation: (suspend (level: Node) -> Unit)? = null
+
+    val effectiveInterpolationDelayMilliseconds: Int
+        get() = if (interpolationDelayMilliseconds > 0) interpolationDelayMilliseconds else 2_000 / maxOf(1, tickRate)
 
     fun copy(): NetworkConfiguration = NetworkConfiguration().also { copy ->
         copy.port = port

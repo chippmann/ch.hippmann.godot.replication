@@ -29,6 +29,10 @@ abstract class ReplicatedProperty<T>(
 
     abstract fun applyInterpolated(renderTimeMilliseconds: Long, maximumExtrapolationMilliseconds: Long)
 
+    /** The configured delay, or more when this stream's arrivals were gappy lately. */
+    internal fun renderTime(nowMilliseconds: Long): Long =
+        nowMilliseconds - maxOf(replica.interpolationDelayMilliseconds, buffer?.recommendedDelayMilliseconds ?: 0L)
+
     fun write(writer: ByteWriter): Unit = codec.write(writer, currentValue())
 
     fun read(reader: ByteReader): T = codec.read(reader)
@@ -51,7 +55,7 @@ class SyncedProperty<T>(name: String, options: SyncedOptions<T>, codec: Property
         if (buffer == null || buffer.isEmpty || replica.isOwnedLocally) return value
         if (sampledFrame != FrameClock.frame) {
             sampledFrame = FrameClock.frame
-            sampledValue = sample(FrameClock.nowMilliseconds - replica.interpolationDelayMilliseconds, replica.maximumExtrapolationMilliseconds) ?: value
+            sampledValue = sample(renderTime(FrameClock.nowMilliseconds), replica.maximumExtrapolationMilliseconds) ?: value
         }
         return sampledValue
     }

@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/main/kotlin/ch/hippmann/godot/replication/sample/world/LatencyProbe.kt" id="1_probe"]
+
+[node name="LatencyProbe" type="Node3D"]
+script = ExtResource("1_probe")

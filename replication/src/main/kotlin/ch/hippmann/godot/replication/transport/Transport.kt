@@ -180,7 +180,7 @@ class Transport(
         val pending = pendingDials.remove(peer.objectID.id)
         val link = EnetLink(peer, outbound = pending != null)
         TransportLog.log { "connected $link" }
-        link.configureTimeouts(configuration.linkTimeoutMilliseconds)
+        link.configurePeer(configuration.linkTimeoutMilliseconds)
         linksByKey[link.key] = link
         if (pending != null) defer { pending.complete(link) } else defer { listener.onInboundLink(link) }
     }

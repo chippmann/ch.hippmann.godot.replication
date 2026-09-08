@@ -13,6 +13,8 @@ data class NetworkStatistics(
     val ticks: Long = 0,
     val activeReplicas: Int = 0,
     val droppedEntries: Long = 0,
+    /** Main thread time the library used in the window: pumping, ticking and applying state. */
+    val processingMilliseconds: Double = 0.0,
     val roundTripMilliseconds: Map<PlayerId, Double> = emptyMap(),
     val packetLoss: Map<PlayerId, Double> = emptyMap(),
 ) {
@@ -25,5 +27,6 @@ data class NetworkStatistics(
         const val RELIABLE_STATE_PACKETS_OUT = "state.reliable.packets.out"
         const val TICKS = "ticks"
         const val DROPPED_ENTRIES = "dropped.entries"
+        const val PROCESSING_MICROSECONDS = "processing.microseconds"
     }
 }

@@ -17,8 +17,18 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
     public val isEmpty: Boolean
         get() = count == 0
 
+    private var largestGapMilliseconds = 0.0
+
+    /** Delay that keeps rendering behind the gaps this stream actually showed lately; jitter and loss raise it, calm streams let it sink. */
+    public val recommendedDelayMilliseconds: Long
+        get() = (largestGapMilliseconds * GAP_SAFETY_FACTOR).toLong()
+
     public fun push(timeMilliseconds: Long, value: T) {
         if (count > 0 && timeMilliseconds < timeAt(count - 1)) return
+        if (count > 0) {
+            val gap = (timeMilliseconds - timeAt(count - 1)).toDouble()
+            largestGapMilliseconds = maxOf(gap, largestGapMilliseconds * GAP_DECAY)
+        }
         if (count == capacity) {
             start = (start + 1) % capacity
             count--
@@ -52,6 +62,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
     public fun clear() {
         count = 0
         start = 0
+        largestGapMilliseconds = 0.0
     }
 
     private fun timeAt(offset: Int): Long = times[(start + offset) % capacity]
@@ -61,5 +72,7 @@ public class InterpolationBuffer<T>(private val capacity: Int = DEFAULT_CAPACITY
 
     public companion object {
         public const val DEFAULT_CAPACITY: Int = 8
+        public const val GAP_SAFETY_FACTOR: Double = 1.5
+        public const val GAP_DECAY: Double = 0.97
     }
 }

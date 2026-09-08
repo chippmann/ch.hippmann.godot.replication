@@ -7,7 +7,7 @@ internal class InterpolationApplier {
             if (replica.isOwnedLocally) continue
             for (property in replica.properties) {
                 if (property is EnginePropertyBinding && property.buffer != null) {
-                    property.applyInterpolated(now - replica.interpolationDelayMilliseconds, replica.maximumExtrapolationMilliseconds)
+                    property.applyInterpolated(property.renderTime(now), replica.maximumExtrapolationMilliseconds)
                 }
             }
         }

@@ -74,7 +74,7 @@ class Hud : CanvasLayer() {
         }
         statisticsLabel.text = "out ${statistics.packetsOut} packets, ${statistics.bytesOut / 1024} KB per second\n" +
             "in ${statistics.packetsIn} packets, ${statistics.bytesIn / 1024} KB per second\n" +
-            "${statistics.activeReplicas} networked nodes, tick ${statistics.ticks}"
+            "${statistics.activeReplicas} networked nodes, tick ${statistics.ticks}, library ${"%.1f".format(statistics.processingMilliseconds)} ms per second"
         switchLevelButton.visible = Network.isMaster
     }
 
