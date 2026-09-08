@@ -111,7 +111,8 @@ lands in `end-to-end-tests/build/end-to-end-logs/<scenario>/<player>.log`. The s
 hand: `godot --path sample` twice, host in one window and join in the other, press Ready, then the master starts a
 level. WASD moves, click or space shoots, E pushes a crate or opens a door (taking it over first), Escape leaves.
 `godot --path sample -- --tour=host --screenshot-dir=/tmp/shots` (and `--tour=join` in a second instance) drives
-the same screens through real mouse and keyboard events and saves a screenshot of every step.
+the same screens through real mouse and keyboard events and saves a screenshot of every step; `--tour=late` joins
+the running level later and `--tour=discover` finds and joins the promoted master after the original host left.
 
 ## Measured on one machine (2026-09-08)
 
