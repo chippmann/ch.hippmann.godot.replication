@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  # Commit of utopia-rise/godot-jvm the version catalog's snapshot is built from (branch fix/multiplayer-binding-bugs).
+  GODOT_JVM_REPOSITORY: utopia-rise/godot-jvm
+  GODOT_JVM_REF: a43c87ac
+
+jobs:
+  binding:
+    name: Build the Godot-JVM snapshot
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GODOT_JVM_REPOSITORY }}
+          ref: ${{ env.GODOT_JVM_REF }}
+          path: godot-jvm
+          submodules: recursive
+
+      - name: Restore built binding
+        id: binding-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            godot-jvm/harness/tests/addons/jvm/libs
+            ~/.m2/repository/com/utopia-rise
+          key: godot-jvm-${{ env.GODOT_JVM_REF }}
+
+      - uses: actions/setup-java@v5
+        if: steps.binding-cache.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v6
+        if: steps.binding-cache.outputs.cache-hit != 'true'
+
+      - name: Install Linux dependencies
+        if: steps.binding-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwayland-dev
+          python -m pip install scons
+
+      - name: Build the editor library
+        if: steps.binding-cache.outputs.cache-hit != 'true'
+        working-directory: godot-jvm
+        run: scons platform=linux target=editor -j"$(nproc)"
+
+      - name: Publish the Kotlin libraries to mavenLocal
+        if: steps.binding-cache.outputs.cache-hit != 'true'
+        working-directory: godot-jvm/kt
+        run: ./gradlew publishArtifactsToMavenLocal --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: addon-libraries
+          path: godot-jvm/harness/tests/addons/jvm/libs
+
+      - name: Pack the mavenLocal snapshot
+        run: tar -C ~/.m2/repository -cf snapshot.tar com/utopia-rise
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maven-local-snapshot
+          path: snapshot.tar
+
+  test:
+    name: Unit and end-to-end tests
+    needs: binding
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: addon-libraries
+          path: sample/addons/jvm/libs
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: maven-local-snapshot
+          path: snapshot
+
+      - name: Unpack the mavenLocal snapshot
+        run: |
+          mkdir -p ~/.m2/repository
+          tar -C ~/.m2/repository -xf snapshot/snapshot.tar
+
+      - name: Download Godot
+        run: |
+          set -euo pipefail
+          mkdir -p bin
+          curl --fail --location --output godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q godot.zip -d bin
+          chmod +x bin/Godot_v${GODOT_VERSION}_linux.x86_64
+          echo "GODOT_EDITOR=${GITHUB_WORKSPACE}/bin/Godot_v${GODOT_VERSION}_linux.x86_64" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Build and test
+        env:
+          GODOT_JVM_ADDON_LIBRARIES: ${{ github.workspace }}/sample/addons/jvm/libs
+        run: ./gradlew build --no-daemon --console=plain
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: end-to-end-logs
+          path: |
+            end-to-end-tests/build/end-to-end-logs
+            end-to-end-tests/build/reports
+            replication-core/build/reports
