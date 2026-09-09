@@ -24,6 +24,20 @@ class ReplicationScenariosTest {
     }
 
     @Test
+    fun `a LAN mesh runs over DTLS when encryption is always on`() {
+        GodotCluster("three_peers_sync_encrypted", "three_peers_sync").use { cluster ->
+            val host = cluster.startHost("Mara", "--expected-players=3", "--encryption=always")
+            cluster.startClient("Tobias", "--expected-players=3", "--encryption=always", "--start-delay-milliseconds=500")
+            val lena = cluster.startClient("Lena", "--expected-players=3", "--encryption=always", "--start-delay-milliseconds=2500")
+            cluster.awaitAllPassed()
+
+            assertEquals("true", cluster.assertEvent(host, "players_visible").string("encrypted"))
+            assertEquals("true", cluster.assertEvent(lena, "players_visible").string("encrypted"))
+            assertEquals(listOf(20, 30), cluster.assertEvent(lena, "sync_verified").ints("credits"))
+        }
+    }
+
+    @Test
     fun `spawned nodes appear and disappear on every peer`() {
         GodotCluster("spawn_despawn", "spawn_despawn").use { cluster ->
             val host = cluster.startHost("Mara", "--expected-players=3")

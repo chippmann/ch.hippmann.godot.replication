@@ -1,6 +1,7 @@
 package ch.hippmann.godot.replication.rendezvous
 
 import ch.hippmann.godot.replication.core.rendezvous.Knock
+import ch.hippmann.godot.replication.core.rendezvous.KnockAnswer
 import ch.hippmann.godot.replication.core.rendezvous.Knocks
 import ch.hippmann.godot.replication.core.rendezvous.PublishedSession
 import ch.hippmann.godot.replication.core.rendezvous.RelayAllocation
@@ -49,6 +50,11 @@ class RendezvousRoutesTest {
             assertEquals(HttpStatusCode.Accepted, client.post("/sessions/${registered.code}/knocks") { contentType(ContentType.Application.Json); setBody(knock) }.status)
             assertEquals(listOf(knock), client.get("/sessions/${registered.code}/knocks/2?wait=1").body<Knocks>().knocks)
             assertEquals(emptyList(), client.get("/sessions/${registered.code}/knocks/2?wait=0").body<Knocks>().knocks)
+
+            assertEquals(HttpStatusCode.NotFound, client.get("/sessions/${registered.code}/knocks/7/answer?wait=0").status)
+            val answer = KnockAnswer(7, listOf(Endpoint("203.0.113.7", 50123)))
+            assertEquals(HttpStatusCode.Accepted, client.post("/sessions/${registered.code}/knocks/7/answer") { contentType(ContentType.Application.Json); setBody(answer) }.status)
+            assertEquals(answer, client.get("/sessions/${registered.code}/knocks/7/answer?wait=1").body<KnockAnswer>())
 
             val allocation = client.post("/sessions/${registered.code}/relays") { contentType(ContentType.Application.Json); setBody(RelayRequest(2, 3)) }.body<RelayAllocation>()
             assertEquals("203.0.113.1", allocation.address)

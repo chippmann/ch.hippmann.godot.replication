@@ -1,6 +1,7 @@
 package ch.hippmann.godot.replication.rendezvous
 
 import ch.hippmann.godot.replication.core.rendezvous.Knock
+import ch.hippmann.godot.replication.core.rendezvous.KnockAnswer
 import ch.hippmann.godot.replication.core.rendezvous.Knocks
 import ch.hippmann.godot.replication.core.rendezvous.ObservedEndpoint
 import ch.hippmann.godot.replication.core.rendezvous.PublishedSession
@@ -47,6 +48,12 @@ class RendezvousClient(serviceUrl: String, private val timeoutMilliseconds: Long
 
     suspend fun awaitKnocks(code: String, member: Int, waitSeconds: Long): List<Knock> =
         get("/sessions/$code/knocks/$member?wait=$waitSeconds", Knocks.serializer(), waitSeconds * 1_000 + timeoutMilliseconds)?.knocks ?: emptyList()
+
+    suspend fun answerKnock(code: String, answer: KnockAnswer): Boolean =
+        send(request("/sessions/$code/knocks/${answer.token}/answer").POST(body(KnockAnswer.serializer(), answer))).statusCode() in 200..299
+
+    suspend fun awaitAnswer(code: String, token: Long, waitSeconds: Long): KnockAnswer? =
+        get("/sessions/$code/knocks/$token/answer?wait=$waitSeconds", KnockAnswer.serializer(), waitSeconds * 1_000 + timeoutMilliseconds)
 
     suspend fun observe(token: Long): ObservedEndpoint? = get("/observe/$token", ObservedEndpoint.serializer())
 

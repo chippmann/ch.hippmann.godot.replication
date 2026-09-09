@@ -34,6 +34,7 @@ import ch.hippmann.godot.replication.rendezvous.OnlineSession
 import ch.hippmann.godot.replication.rendezvous.RendezvousClient
 import ch.hippmann.godot.replication.transport.ConnectionTarget
 import ch.hippmann.godot.replication.transport.DirectStrategy
+import ch.hippmann.godot.replication.transport.SessionCertificate
 import ch.hippmann.godot.replication.transport.TransportLog
 import ch.hippmann.godot.replication.transport.EnetLink
 import kotlinx.coroutines.async
@@ -45,6 +46,7 @@ import java.security.SecureRandom
 
 internal suspend fun SessionRuntime.host(lobby: LobbyConfiguration, profile: PlayerProfile, port: Int, online: Boolean) {
     check(membership == null) { "Already in a session" }
+    useEncryption(configuration.encryption.forSession(online))
     val host = transport.bind(port, maximumPeers = 2 * lobby.maximumPlayers)
     localPlayerId = PlayerId.FIRST_HOST
     localProfile = profile
@@ -56,14 +58,14 @@ internal suspend fun SessionRuntime.host(lobby: LobbyConfiguration, profile: Pla
         endpoints = session.refreshListenerEndpoints()
         val registration = SessionRegistration(
             lobbyName = lobby.name, maximumPlayers = lobby.maximumPlayers, passwordRequired = lobby.passwordRequired,
-            encrypted = false, masterId = localPlayerId.value, masterCertificate = certificatePem, masterEndpoints = endpoints,
+            encrypted = transport.encrypted, masterId = localPlayerId.value, masterCertificate = certificatePem, masterEndpoints = endpoints,
         )
         val registered = session.client.register(registration)
         session.code = registered.code
         session.secret = registered.hostSecret
         this.online = session
     }
-    val record = MemberRecord(localPlayerId, profile, endpoints)
+    val record = MemberRecord(localPlayerId, profile, endpoints, certificate = certificatePem)
     membership = Membership.hosting(SessionId(SecureRandom().nextLong()), record)
     masterRole = MasterRole(this, passwordVerifier)
     installMeshPeer()
@@ -73,6 +75,12 @@ internal suspend fun SessionRuntime.host(lobby: LobbyConfiguration, profile: Pla
     transport.runDeferred()
     Network.setState(NetworkState.Connected)
     replication.start()
+}
+
+/** Generates this process's certificate on first use; the PEM travels in the member record for others to pin. */
+internal fun SessionRuntime.useEncryption(encrypted: Boolean) {
+    transport.encrypted = encrypted
+    certificatePem = if (encrypted) SessionCertificate.pem else ""
 }
 
 /** A client for the configured service plus the UDP endpoint it announces; nothing is registered yet. */
@@ -94,7 +102,8 @@ internal suspend fun SessionRuntime.joinByCode(code: String, profile: PlayerProf
     }
     val published = session.client.find(code) ?: run { abort(); throw JoinFailure.Unreachable("code $code", 0) }
     online = session
-    join(ConnectionTarget(PlayerId(published.masterId), published.masterEndpoints), profile, password)
+    val master = ConnectionTarget(PlayerId(published.masterId), published.masterEndpoints, published.masterCertificate.ifBlank { null })
+    join(master, profile, password, published.encrypted)
 }
 
 internal fun SessionRuntime.startDiscoveryResponder() {
@@ -107,18 +116,22 @@ internal fun SessionRuntime.startDiscoveryResponder() {
             playerCount = membership?.members?.size ?: 0,
             maximumPlayers = lobbyConfiguration.maximumPlayers,
             passwordRequired = lobbyConfiguration.passwordRequired,
+            encrypted = transport.encrypted,
+            certificate = certificatePem,
         )
     }
 }
 
-internal suspend fun SessionRuntime.join(address: String, port: Int, profile: PlayerProfile, password: String?) {
+internal suspend fun SessionRuntime.join(address: String, port: Int, profile: PlayerProfile, password: String?, encrypted: Boolean?, certificate: String?) {
     check(membership == null) { "Already in a session" }
-    join(ConnectionTarget(PlayerId.NONE, listOf(Endpoint(address, port))), profile, password)
+    val target = ConnectionTarget(PlayerId.NONE, listOf(Endpoint(address, port)), certificate)
+    join(target, profile, password, encrypted ?: configuration.encryption.forTypedAddress(address))
 }
 
-private suspend fun SessionRuntime.join(master: ConnectionTarget, profile: PlayerProfile, password: String?) {
+private suspend fun SessionRuntime.join(master: ConnectionTarget, profile: PlayerProfile, password: String?, encrypted: Boolean) {
     Network.setState(NetworkState.Joining(JoinStep.CONNECTING))
     try {
+        useEncryption(encrypted)
         transport.bind(configuration.joinPort, maximumPeers = MAXIMUM_JOINER_PEERS)
         localProfile = profile
         online?.refreshListenerEndpoints()
@@ -155,7 +168,7 @@ private suspend fun SessionRuntime.requestAdmission(entry: EnetLink, profile: Pl
     var redirects = 0
     var retries = 0
     while (true) {
-        val request = JoinRequest(PROTOCOL_VERSION, profile, transport.listeningHost?.port ?: 0, DirectStrategy.localAddresses(), online?.listenerEndpoints.orEmpty())
+        val request = JoinRequest(PROTOCOL_VERSION, profile, transport.listeningHost?.port ?: 0, DirectStrategy.localAddresses(), online?.listenerEndpoints.orEmpty(), certificatePem)
         link.sendMessage(request)
         val reply = try {
             mailbox.await(link, setOf(MessageType.CHALLENGE, MessageType.REDIRECT), configuration.joinTimeoutMilliseconds)
@@ -218,7 +231,7 @@ private suspend fun SessionRuntime.meshWithMembers(admitted: Admitted) {
 
 private suspend fun SessionRuntime.connectMember(member: MemberRecord): Boolean {
     val membership = membership ?: return false
-    val link = reach(ConnectionTarget(member.id, member.endpoints)) ?: return false
+    val link = reach(ConnectionTarget(member.id, member.endpoints, member.certificate.ifBlank { null })) ?: return false
     link.sendMessage(Hello(membership.sessionId, localPlayerId, membership.epoch))
     mailbox.await<HelloAccepted>(link, MessageType.HELLO_ACCEPTED, configuration.meshTimeoutMilliseconds)
     transport.identify(link, member.id)

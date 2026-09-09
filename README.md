@@ -15,6 +15,8 @@ the lobby, level coordination, node ownership and property replication; a game o
   properties (reliable or unreliable, on change or continuous, quantized, interpolated), ownership can be
   transferred or requested, and owner leave policies (`Despawn`, `TransferToMaster`, `TransferTo`) survive master migration.
 - Godot's own `@Rpc` keeps working on top of the mesh, plus typed custom messages and RPC target helpers.
+- Internet play through a small rendezvous service: session codes, NAT hole punching with a relay fallback, and
+  DTLS on every online link with pinned per member certificates.
 - Interest management by distance or custom filter, per second statistics, and a network simulation
   (latency, jitter, loss) for testing.
 - One binary packet per peer per tick; Godot math types are pure Kotlin so replication costs no JNI per property.
@@ -80,7 +82,7 @@ libraries from the binding checkout (`GODOT_JVM_ADDON_LIBRARIES`).
 
 | Area | Entry points |
 |---|---|
-| Session | `Network.host`, `join`, `leave`, `state`, `session`, `events`, `discoverLocalSessions`, `configure { port; tickRate; ... }` |
+| Session | `Network.host` (`online = true` for a code), `join`, `joinByCode`, `leave`, `state`, `session`, `events`, `sessionCode`, `isEncrypted`, `discoverLocalSessions`, `configure { port; tickRate; encryption; rendezvousUrl; ... }` |
 | Lobby | `Network.lobby`, `setReady`, `updateProfile`, `updateLobby` (master), `requestLobbyUpdate`, `kick` |
 | Levels | `Network.loadLevel(path, policy)`, `level`, `levelNode`, `NetworkConfiguration.levelPreparation` |
 | Nodes | `Network.spawn`, `despawn`, `ownerOf`, `isOwner`, `transferOwnership`, `requestOwnership`, `SpawnOptions`, `NetworkConfigured` |
@@ -97,6 +99,7 @@ root belong to the master, so `@Rpc(rpcMode = AUTHORITY)` keeps its meaning.
   logic, delta packets, interpolation, simulation. Unit tested with JUnit.
 - `replication`: the Godot-JVM library (transport over ENet, session flows, replication engine, public API).
 - `sample`: a Godot 4.7 project you can play by hand (lobby, two levels, movement, shooting, crates and doors) that also hosts the scripted end-to-end scenarios and a self driving UI tour.
+- `rendezvous-service`: the Ktor service that hands out session codes, observes public endpoints and relays.
 - `end-to-end-tests`: JUnit tests that launch several headless Godot processes on localhost per scenario.
 
 ## Running the tests
@@ -125,6 +128,24 @@ The `PerformanceScenariosTest` suite prints these on every run and fails when th
 | Interpolated position, shown behind the owner | 74 to 78 ms median at 30 ticks, 49 ms at 60 ticks (two ticks of delay plus sending; the delay grows on its own for gappy streams) |
 | 150 nodes moving at 30 Hz, per receiving peer | 90 packets and 85 KB per second, about 50 ms of main thread time per second |
 | Same, on the owner sending to two peers | 180 packets and 170 KB per second, about 28 ms per second |
+
+## Playing over the internet
+
+A session hosted with `Network.host(..., online = true)` registers with a rendezvous service and gets a six letter
+code; `Network.joinByCode(code, profile)` joins it from anywhere. Every link tries the strategies in
+`NetworkConfiguration.connectionStrategies` order: `direct` (the member's advertised addresses), `punchthrough`
+(both sides open their NAT toward each other through the service, works with cone NATs) and `relay` (the service
+forwards the datagrams, works behind any NAT). The HUD shows which one carried each link.
+
+Online sessions are encrypted with DTLS by default (`Encryption.ONLINE_ONLY`): every process generates a
+certificate, members pin each other's certificate through the member list, and a public address typed by hand
+trusts on first use. LAN sessions stay plain unless `encryption = Encryption.ALWAYS`.
+
+The service lives in `rendezvous-service` (Ktor, one JVM, no database): `./gradlew :rendezvous-service:run`
+starts it on HTTP 7789 and UDP 7790 with relay ports 7800 to 7899; `RENDEZVOUS_*` environment variables change
+that (see `ServiceConfiguration`). Point the library at it with `configure { rendezvousUrl = "https://..." }` or,
+for the sample, `--rendezvous=<url>` / `REPLICATION_RENDEZVOUS_URL`. Codes expire 45 seconds after the last
+heartbeat of their host. The `InternetScenariosTest` suite runs the service and all three strategies on localhost.
 
 ## Protocol notes
 

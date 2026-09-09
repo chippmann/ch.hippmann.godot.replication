@@ -108,8 +108,9 @@ class LobbyScreen : Control() {
     }
 
     private fun join() = launch {
+        val selected = discovered.firstOrNull { session -> session.address == addressField.text && session.port.toString() == portField.text }
         runCatching {
-            Network.join(addressField.text, portField.text.toInt(), profile(), passwordField.text.ifBlank { null })
+            Network.join(addressField.text, portField.text.toInt(), profile(), passwordField.text.ifBlank { null }, selected?.encrypted, selected?.certificate)
         }.onFailure { failure -> status.text = "Join failed: ${failure.message}" }
     }
 
@@ -119,7 +120,8 @@ class LobbyScreen : Control() {
         sessions.clear()
         for (session in discovered) {
             val lock = if (session.passwordRequired) ", password" else ""
-            sessions.addItem("${session.lobbyName} at ${session.address}:${session.port}, ${session.playerCount}/${session.maximumPlayers} players$lock")
+            val secured = if (session.encrypted) ", encrypted" else ""
+            sessions.addItem("${session.lobbyName} at ${session.address}:${session.port}, ${session.playerCount}/${session.maximumPlayers} players$lock$secured")
         }
         status.text = "Found ${discovered.size} session(s)"
     }

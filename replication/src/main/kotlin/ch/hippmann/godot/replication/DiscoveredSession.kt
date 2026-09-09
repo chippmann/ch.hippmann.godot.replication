@@ -7,4 +7,7 @@ data class DiscoveredSession(
     val playerCount: Int,
     val maximumPlayers: Int,
     val passwordRequired: Boolean,
+    val encrypted: Boolean = false,
+    /** PEM to pin when joining an encrypted session found on the LAN. */
+    val certificate: String = "",
 )

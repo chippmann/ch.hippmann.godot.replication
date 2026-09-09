@@ -1,5 +1,6 @@
 package ch.hippmann.godot.replication.sample
 
+import ch.hippmann.godot.replication.Encryption
 import ch.hippmann.godot.replication.Network
 import ch.hippmann.godot.replication.sample.game.GameSession
 import ch.hippmann.godot.replication.sample.lobby.LobbyScreen
@@ -33,6 +34,7 @@ class Main : Node() {
         Network.configure {
             tickRate = INTERACTIVE_TICK_RATE
             rendezvousUrl = arguments["rendezvous"] ?: System.getenv("REPLICATION_RENDEZVOUS_URL")?.takeIf { url -> url.isNotBlank() }
+            arguments["encryption"]?.let { name -> encryption = Encryption.valueOf(name.uppercase()) }
         }
         val lobby = LobbyScreen()
         val session = GameSession()

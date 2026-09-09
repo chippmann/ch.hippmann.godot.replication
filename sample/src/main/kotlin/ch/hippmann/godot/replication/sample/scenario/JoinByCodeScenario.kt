@@ -28,7 +28,7 @@ class JoinByCodeScenario : Scenario {
         runner.awaitConnected(context.expectedPlayers)
         val strategies = Network.session.value?.connected.orEmpty().filter { id -> id != Network.localPlayerId }
             .associate { id -> id.value.toString() to Network.connectionStrategyOf(id) }
-        ScenarioLog.event("meshed", "strategies" to strategies.entries.joinToString(",") { (id, strategy) -> "$id=$strategy" })
+        ScenarioLog.event("meshed", "strategies" to strategies.entries.joinToString(",") { (id, strategy) -> "$id=$strategy" }, "encrypted" to Network.isEncrypted)
 
         val scene = GD.load<PackedScene>("res://scenes/player.tscn") ?: throw ScenarioFailure("player scene missing")
         val local = Network.spawn<Player>(scene, world, spawnData = Loadout("wrench", Network.localPlayerId.value))

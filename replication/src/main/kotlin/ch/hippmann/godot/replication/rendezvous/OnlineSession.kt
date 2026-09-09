@@ -1,6 +1,7 @@
 package ch.hippmann.godot.replication.rendezvous
 
 import ch.hippmann.godot.replication.core.rendezvous.Knock
+import ch.hippmann.godot.replication.core.rendezvous.KnockAnswer
 import ch.hippmann.godot.replication.core.rendezvous.OnlineSessionInfo
 import ch.hippmann.godot.replication.core.rendezvous.ProbeCodec
 import ch.hippmann.godot.replication.core.rendezvous.RelayAllocation
@@ -13,15 +14,17 @@ import ch.hippmann.godot.replication.transport.EnetHost
 import ch.hippmann.godot.replication.transport.TransportLog
 import godot.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withTimeoutOrNull
 import java.security.SecureRandom
 
 /**
  * Everything a member does with the rendezvous service while its session is registered there: the master keeps the
- * registration alive, everybody answers knocks by opening its NAT toward the knocker, and the listening socket keeps its
- * public mapping fresh.
+ * registration alive, everybody answers knocks by punching toward the knocker from a fresh socket and listening on it,
+ * and the listening socket keeps its public mapping fresh.
  */
 internal class OnlineSession(
     private val runtime: SessionRuntime,
@@ -68,15 +71,27 @@ internal class OnlineSession(
         return null
     }
 
-    /** The listening socket's public endpoint first, then the LAN addresses, for the join request and the registration. */
+    /**
+     * The listening socket's public endpoint first, then the LAN addresses, for the join request and the registration. A
+     * DTLS server socket drops raw datagrams, so an encrypted listener has no observable mapping: callers punch instead.
+     */
     suspend fun refreshListenerEndpoints(): List<Endpoint> {
         val listener = runtime.transport.listeningHost ?: return emptyList()
-        val public = observe(listener)
+        val public = if (runtime.transport.encrypted) null else observe(listener)
         listenerEndpoints = listOfNotNull(public) + DirectStrategy.localAddresses().map { address -> Endpoint(address, listener.port) }
         return listenerEndpoints
     }
 
-    suspend fun knock(knock: Knock): Boolean = client.knock(code, knock)
+    /** Leaves [knock] for its target and waits for the answer, at most [timeoutMilliseconds]. */
+    suspend fun knockAndAwaitAnswer(knock: Knock, timeoutMilliseconds: Long): KnockAnswer? {
+        if (!client.knock(code, knock)) return null
+        val waitSeconds = (timeoutMilliseconds / 1_000).coerceIn(1, KNOCK_WAIT_SECONDS)
+        return withTimeoutOrNull(timeoutMilliseconds) {
+            var answer: KnockAnswer? = null
+            while (answer == null) answer = client.awaitAnswer(code, knock.token, waitSeconds)
+            answer
+        }
+    }
 
     suspend fun allocateRelay(toMember: Int): RelayAllocation? =
         client.allocateRelay(code, RelayRequest(runtime.localPlayerId.value, toMember))
@@ -92,7 +107,7 @@ internal class OnlineSession(
         }
     }
 
-    private suspend fun knocks() {
+    private suspend fun knocks() = coroutineScope {
         while (true) {
             val knocks = try {
                 client.awaitKnocks(code, runtime.localPlayerId.value, KNOCK_WAIT_SECONDS)
@@ -101,19 +116,31 @@ internal class OnlineSession(
                 delay(KNOCK_RETRY_MILLISECONDS)
                 emptyList()
             }
-            for (knock in knocks) answer(knock)
+            for (knock in knocks) launch { answer(knock) }
         }
     }
 
-    /** Opens this side's NAT toward the knocker, or toward the relay when the knocker asked for one. */
+    /**
+     * Opens a socket for the knocker alone, sends from it toward the knocker's endpoints (or the relay's callee port) so
+     * this side's NAT lets the dial in, then listens on it and tells the knocker where it is.
+     */
     private suspend fun answer(knock: Knock) {
-        val listener = runtime.transport.listeningHost ?: return
+        if (runtime.membership == null) return
         TransportLog.log { "knock from ${knock.fromMember} toward ${knock.endpoints}${knock.relay?.let { " through relay $it" } ?: ""}" }
+        val host = runtime.transport.punchingHost()
         repeat(PUNCH_COUNT) {
-            for (endpoint in knock.endpoints) listener.socketSend(endpoint.address, endpoint.port, ProbeCodec.encode(knock.token))
-            knock.relay?.let { relay -> listener.socketSend(relay.address, relay.calleePort, ProbeCodec.encode(knock.token)) }
+            for (endpoint in knock.endpoints) host.socketSend(endpoint.address, endpoint.port, ProbeCodec.encode(knock.token))
+            knock.relay?.let { relay -> host.socketSend(relay.address, relay.calleePort, ProbeCodec.encode(knock.token)) }
             delay(PUNCH_INTERVAL_MILLISECONDS)
         }
+        val endpoints = if (knock.relay != null) emptyList() else listOfNotNull(observe(host))
+        if (knock.relay == null && endpoints.isEmpty()) {
+            host.destroy()
+            TransportLog.log { "the service never saw the punched socket for ${knock.fromMember}" }
+            return
+        }
+        runtime.transport.expectCaller(host)
+        if (!client.answerKnock(code, KnockAnswer(knock.token, endpoints))) TransportLog.log { "the answer to ${knock.fromMember} was refused" }
     }
 
     private suspend fun keepalive() {

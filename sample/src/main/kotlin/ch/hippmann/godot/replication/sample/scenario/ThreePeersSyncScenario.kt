@@ -34,7 +34,7 @@ class ThreePeersSyncScenario : Scenario {
         ScenarioLog.event("spawned", "name" to local.name.toString())
 
         runner.awaitUntil { players(world).size == context.expectedPlayers }
-        ScenarioLog.event("players_visible", "names" to players(world).map { player -> player.name.toString() }.sorted())
+        ScenarioLog.event("players_visible", "names" to players(world).map { player -> player.name.toString() }.sorted(), "encrypted" to Network.isEncrypted)
         delay(1_000)
         local.health = 42
 

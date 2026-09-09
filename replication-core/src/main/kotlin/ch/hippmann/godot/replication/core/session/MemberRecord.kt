@@ -9,4 +9,6 @@ public data class MemberRecord(
     val profile: PlayerProfile,
     val endpoints: List<Endpoint>,
     val ready: Boolean = false,
+    /** PEM of the member's DTLS certificate; empty in a plain session. */
+    val certificate: String = "",
 )

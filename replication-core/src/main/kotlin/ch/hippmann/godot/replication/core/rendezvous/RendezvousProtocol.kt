@@ -75,6 +75,13 @@ public data class Knock(
 @Serializable
 public data class Knocks(val knocks: List<Knock>)
 
+/**
+ * The callee's reply to the knock with [token]: it punched toward the caller from a fresh socket and now listens on it.
+ * [endpoints] is where the caller dials; empty when the caller asked for a relay, then it dials the relay's caller port.
+ */
+@Serializable
+public data class KnockAnswer(val token: Long, val endpoints: List<Endpoint>)
+
 @Serializable
 public data class ObservedEndpoint(val address: String, val port: Int)
 

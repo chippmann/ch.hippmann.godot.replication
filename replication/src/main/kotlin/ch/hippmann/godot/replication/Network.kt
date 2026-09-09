@@ -108,14 +108,22 @@ object Network {
     fun connectionStrategyOf(player: PlayerId): String? =
         ReplicationManager.instance?.runtime?.transport?.linkFor(player)?.strategy?.takeIf { name -> name.isNotEmpty() }
 
+    /** Whether every link of the current session runs over DTLS. */
+    val isEncrypted: Boolean
+        get() = ReplicationManager.instance?.runtime?.transport?.encrypted == true
+
     /** The code others can join with while this session is registered with a rendezvous service. */
     val sessionCode: String?
         get() = ReplicationManager.instance?.runtime?.online?.code?.takeIf { code -> code.isNotEmpty() }
 
-    suspend fun join(address: String, port: Int, profile: PlayerProfile, password: String? = null): SessionView {
+    /**
+     * [encrypted] null follows [NetworkConfiguration.encryption]: public addresses get DTLS, private ones stay plain.
+     * [certificate] pins the host (from [DiscoveredSession]); without it an encrypted join trusts on first use.
+     */
+    suspend fun join(address: String, port: Int, profile: PlayerProfile, password: String? = null, encrypted: Boolean? = null, certificate: String? = null): SessionView {
         val runtime = startRuntime()
         try {
-            runtime.join(address, port, profile, password)
+            runtime.join(address, port, profile, password, encrypted, certificate)
         } catch (failure: Exception) {
             runtime.manager.endSession()
             throw failure

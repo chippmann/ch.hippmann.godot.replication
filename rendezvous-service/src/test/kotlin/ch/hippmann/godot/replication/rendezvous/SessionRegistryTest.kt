@@ -1,6 +1,7 @@
 package ch.hippmann.godot.replication.rendezvous
 
 import ch.hippmann.godot.replication.core.rendezvous.Knock
+import ch.hippmann.godot.replication.core.rendezvous.KnockAnswer
 import ch.hippmann.godot.replication.core.rendezvous.RendezvousProtocol
 import ch.hippmann.godot.replication.core.rendezvous.SessionHeartbeat
 import ch.hippmann.godot.replication.core.rendezvous.SessionRegistration
@@ -53,5 +54,16 @@ class SessionRegistryTest {
         assertEquals(listOf(42L, 43L), knocks.map { knock -> knock.token })
         assertEquals(emptyList(), registry.awaitKnocks(session.code, 3, waitMilliseconds = 10))
         assertNull(registry.awaitKnocks("NOSUCH", 2, waitMilliseconds = 10))
+    }
+
+    @Test
+    fun `the answer to a knock waits under its token until the caller picks it up`() = runBlocking {
+        val session = registry.register(registration)
+        assertNull(registry.awaitAnswer(session.code, 42, waitMilliseconds = 10))
+        val answer = KnockAnswer(42, listOf(Endpoint("203.0.113.7", 50123)))
+        assertTrue(registry.answer(session.code, answer))
+        assertEquals(answer, registry.awaitAnswer(session.code, 42, waitMilliseconds = 1_000))
+        assertNull(registry.awaitAnswer(session.code, 42, waitMilliseconds = 10))
+        assertFalse(registry.answer("NOSUCH", answer))
     }
 }

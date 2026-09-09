@@ -76,6 +76,7 @@ class LanDiscovery(private val discoveryPort: Int) {
                     if (answer.protocolVersion != PROTOCOL_VERSION) continue
                     found["$address:${answer.sessionPort}"] = DiscoveredSession(
                         address, answer.sessionPort, answer.lobbyName, answer.playerCount, answer.maximumPlayers, answer.passwordRequired,
+                        answer.encrypted, answer.certificate,
                     )
                 }
                 delay(POLL_MILLISECONDS)

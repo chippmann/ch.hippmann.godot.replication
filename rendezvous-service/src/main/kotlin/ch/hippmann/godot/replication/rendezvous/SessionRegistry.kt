@@ -1,10 +1,12 @@
 package ch.hippmann.godot.replication.rendezvous
 
 import ch.hippmann.godot.replication.core.rendezvous.Knock
+import ch.hippmann.godot.replication.core.rendezvous.KnockAnswer
 import ch.hippmann.godot.replication.core.rendezvous.PublishedSession
 import ch.hippmann.godot.replication.core.rendezvous.RendezvousProtocol
 import ch.hippmann.godot.replication.core.rendezvous.SessionHeartbeat
 import ch.hippmann.godot.replication.core.rendezvous.SessionRegistration
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
 import java.security.SecureRandom
@@ -18,8 +20,11 @@ class RegisteredSession(
     @Volatile var lastSeenMilliseconds: Long,
 ) {
     val knocks = ConcurrentHashMap<Int, Channel<Knock>>()
+    val answers = ConcurrentHashMap<Long, CompletableDeferred<KnockAnswer>>()
 
     fun mailbox(member: Int): Channel<Knock> = knocks.getOrPut(member) { Channel(Channel.UNLIMITED) }
+
+    fun answerSlot(token: Long): CompletableDeferred<KnockAnswer> = answers.getOrPut(token) { CompletableDeferred() }
 
     fun published(): PublishedSession = PublishedSession(
         code = code,
@@ -34,7 +39,10 @@ class RegisteredSession(
     )
 }
 
-/** Sessions by code with a time to live the host refreshes; knocks wait in per member mailboxes for the long poll. */
+/**
+ * Sessions by code with a time to live the host refreshes; knocks wait in per member mailboxes for the long poll and the
+ * answer to a knock waits under the knock's token for the caller.
+ */
 class SessionRegistry(private val timeToLiveMilliseconds: Long, private val clock: () -> Long = System::currentTimeMillis) {
     private val sessions = ConcurrentHashMap<String, RegisteredSession>()
     private val random = SecureRandom()
@@ -86,6 +94,21 @@ class SessionRegistry(private val timeToLiveMilliseconds: Long, private val cloc
         val knocks = mutableListOf(first)
         while (true) knocks += mailbox.tryReceive().getOrNull() ?: break
         return knocks
+    }
+
+    fun answer(code: String, answer: KnockAnswer): Boolean {
+        val session = find(code) ?: return false
+        session.answerSlot(answer.token).complete(answer)
+        return true
+    }
+
+    /** The answer to the knock with [token], or empty when nobody answered within [waitMilliseconds]; null without a session. */
+    suspend fun awaitAnswer(code: String, token: Long, waitMilliseconds: Long): KnockAnswer? {
+        val session = find(code) ?: return null
+        val slot = session.answerSlot(token)
+        val answer = withTimeoutOrNull(waitMilliseconds) { slot.await() } ?: return null
+        session.answers.remove(token, slot)
+        return answer
     }
 
     val size: Int

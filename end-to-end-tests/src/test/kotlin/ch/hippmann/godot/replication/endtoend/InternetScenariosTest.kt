@@ -16,7 +16,7 @@ class InternetScenariosTest {
 
     @Test
     fun `members join by code through hole punching`() =
-        joinByCode("join_by_code_punch", listOf("--strategies=punchthrough,relay", "--punch-private=true"), expectedStrategy = "punchthrough")
+        joinByCode("join_by_code_punch", listOf("--strategies=punchthrough,relay"), expectedStrategy = "punchthrough")
 
     @Test
     fun `members join by code through the relay`() = joinByCode("join_by_code_relay", listOf("--strategies=relay"), expectedStrategy = "relay")
@@ -35,6 +35,7 @@ class InternetScenariosTest {
                 for (process in listOf(tobias, lena)) {
                     assertEquals(expectedStrategy, cluster.assertEvent(process, "joined").string("master_strategy"), "${process.name} reached the master")
                 }
+                assertEquals("true", cluster.assertEvent(lena, "meshed").string("encrypted"), "online sessions are encrypted by default")
                 val lenaMesh = cluster.assertEvent(lena, "meshed").string("strategies").orEmpty()
                 assertTrue(lenaMesh.contains("3=$expectedStrategy"), "Lena's link to Tobias: $lenaMesh")
                 assertEquals(listOf(43, 44), cluster.assertEvent(host, "state_seen").ints("healths"))

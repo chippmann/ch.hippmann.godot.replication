@@ -18,6 +18,8 @@ public data class DiscoveryAnswer(
     val playerCount: Int,
     val maximumPlayers: Int,
     val passwordRequired: Boolean,
+    val encrypted: Boolean = false,
+    val certificate: String = "",
 )
 
 public object DiscoveryCodec {

@@ -6,7 +6,7 @@ import ch.hippmann.godot.replication.session.SessionRuntime
 import godot.api.IP
 
 /** Whom to reach: the member's id (for knocks through the service) and every endpoint anybody advertised for it. */
-internal class ConnectionTarget(val member: PlayerId, val endpoints: List<Endpoint>)
+internal class ConnectionTarget(val member: PlayerId, val endpoints: List<Endpoint>, val certificate: String? = null)
 
 /** How a member reaches another member; strategies are tried in configuration order per member. */
 internal interface ConnectionStrategy {
@@ -22,7 +22,7 @@ internal object DirectStrategy : ConnectionStrategy {
         // Behind the internet, an address that does not answer costs a full timeout; keep that short so punching gets its turn.
         val perAttempt = if (session.online != null) minOf(timeoutMilliseconds, ONLINE_ATTEMPT_MILLISECONDS) else timeoutMilliseconds
         for (candidate in target.endpoints) {
-            val link = session.transport.dial(candidate.address, candidate.port, perAttempt)
+            val link = session.transport.dial(candidate.address, candidate.port, perAttempt, session.transport.outboundHost(target.certificate))
             if (link != null) return link
         }
         return null
@@ -37,6 +37,10 @@ internal object DirectStrategy : ConnectionStrategy {
         val loopback = ipv4.filter { address -> address.startsWith("127.") }
         return (ipv4 - loopback.toSet()) + loopback
     }
+
+    fun isPrivate(address: String): Boolean =
+        address.startsWith("10.") || address.startsWith("192.168.") || address.startsWith("127.") ||
+            address.startsWith("169.254.") || Regex("^172\\.(1[6-9]|2[0-9]|3[01])\\.").containsMatchIn(address)
 
     private const val ONLINE_ATTEMPT_MILLISECONDS = 1_500L
 }

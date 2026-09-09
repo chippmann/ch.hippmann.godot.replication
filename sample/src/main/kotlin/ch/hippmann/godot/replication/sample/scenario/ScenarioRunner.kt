@@ -1,5 +1,6 @@
 package ch.hippmann.godot.replication.sample.scenario
 
+import ch.hippmann.godot.replication.Encryption
 import ch.hippmann.godot.replication.Network
 import ch.hippmann.godot.replication.NetworkEvent
 import ch.hippmann.godot.replication.NetworkState
@@ -29,7 +30,7 @@ class ScenarioRunner : Node() {
                     context.arguments.int("tick-rate", 0).takeIf { rate -> rate > 0 }?.let { rate -> tickRate = rate }
                     context.arguments["rendezvous"]?.let { url -> rendezvousUrl = url }
                     context.arguments["strategies"]?.let { names -> connectionStrategies = names.split(",") }
-                    punchPrivateAddresses = context.arguments["punch-private"] == "true"
+                    context.arguments["encryption"]?.let { name -> encryption = Encryption.valueOf(name.uppercase()) }
                     val preparationMilliseconds = context.arguments.long("level-preparation-milliseconds", 0)
                     if (preparationMilliseconds > 0) levelPreparation = { delay(preparationMilliseconds) }
                 }

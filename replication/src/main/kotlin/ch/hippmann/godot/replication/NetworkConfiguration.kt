@@ -22,12 +22,11 @@ class NetworkConfiguration {
     var snapshotTimeoutMilliseconds: Long = 10_000
     var linkTimeoutMilliseconds: Int = 6_000
     var verboseTransportLogging: Boolean = false
+    var encryption: Encryption = Encryption.ONLINE_ONLY
     /** Base URL of a rendezvous service; null keeps sessions on the LAN (discovery and typed addresses only). */
     var rendezvousUrl: String? = null
     var punchTimeoutMilliseconds: Long = 4_000
     var relayTimeoutMilliseconds: Long = 6_000
-    /** Lets punchthrough try private addresses too; only useful to exercise it on one machine. */
-    var punchPrivateAddresses: Boolean = false
     /** Strategy names in the order to try them; "direct", "punchthrough" and "relay" exist. */
     var connectionStrategies: List<String> = listOf("direct", "punchthrough", "relay")
     /** Where the library adds the level node named "Level"; every member must use the same path. */
@@ -54,11 +53,11 @@ class NetworkConfiguration {
         copy.verboseTransportLogging = verboseTransportLogging
         copy.levelParentPath = levelParentPath
         copy.levelPreparation = levelPreparation
+        copy.encryption = encryption
         copy.rendezvousUrl = rendezvousUrl
         copy.punchTimeoutMilliseconds = punchTimeoutMilliseconds
         copy.relayTimeoutMilliseconds = relayTimeoutMilliseconds
         copy.connectionStrategies = connectionStrategies
-        copy.punchPrivateAddresses = punchPrivateAddresses
     }
 
     internal fun strategies(): List<ConnectionStrategy> = connectionStrategies.map { name ->

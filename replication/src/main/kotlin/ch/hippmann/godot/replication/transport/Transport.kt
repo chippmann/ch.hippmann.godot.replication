@@ -26,7 +26,7 @@ class Transport(
 ) : EnetEventHandler {
     private val linksByKey = HashMap<Long, EnetLink>()
     private val linksByPlayer = HashMap<Int, EnetLink>()
-    private val outboundHosts = HashMap<Long, EnetHost>()
+    private val linkHosts = LinkHosts(PUNCHED_HOST_LIFETIME_MILLISECONDS)
     private val pendingDials = HashMap<Long, CompletableDeferred<EnetLink>>()
     private val packetsAwaitingIdentity = HashMap<Long, MutableList<ByteArray>>()
     private val deferredActions = ArrayDeque<() -> Unit>()
@@ -54,9 +54,13 @@ class Transport(
     private val channels: Int
         get() = Channels.RPC_BASE + configuration.rpcChannels
 
+    /** Decided before binding; every link of the session is DTLS or none is. */
+    var encrypted: Boolean = false
+
     fun bind(port: Int, maximumPeers: Int): EnetHost {
         check(listeningHost == null) { "The transport is already bound" }
-        return EnetHost.bind(port, maximumPeers, channels).also { listeningHost = it }
+        val server = if (encrypted) SessionCertificate.serverOptions() else null
+        return EnetHost.bind(port, maximumPeers, channels, server).also { listeningHost = it }
     }
 
     fun pump() {
@@ -64,7 +68,7 @@ class Transport(
             pumping = true
             try {
                 listeningHost?.service(this)
-                for (host in outboundHosts.values.toList()) host.service(this)
+                linkHosts.service(this) { host -> PunchedHostEvents(host) }
                 drainSimulation()
             } finally {
                 pumping = false
@@ -92,7 +96,7 @@ class Transport(
 
     fun flush() {
         listeningHost?.flush()
-        outboundHosts.values.forEach(EnetHost::flush)
+        linkHosts.flush()
     }
 
     fun defer(action: () -> Unit) {
@@ -103,7 +107,22 @@ class Transport(
         while (deferredActions.isNotEmpty()) deferredActions.removeFirst()()
     }
 
-    fun outboundHost(): EnetHost = EnetHost.outbound(channels)
+    /** An outbound host that pins [certificate] when the session is encrypted, or trusts on first use without one. */
+    fun outboundHost(certificate: String? = null): EnetHost =
+        EnetHost.outbound(channels, if (encrypted) SessionCertificate.clientOptions(certificate) else null)
+
+    /** A plain host for one link that may still send raw datagrams; [secureDialer] or [expectCaller] upgrade it afterwards. */
+    fun punchingHost(): EnetHost = EnetHost.forOneLink(channels)
+
+    fun secureDialer(host: EnetHost, certificate: String?) {
+        if (encrypted) host.enableDtlsClient(SessionCertificate.clientOptions(certificate))
+    }
+
+    /** The punched host now accepts its one caller, over DTLS when the session is encrypted. */
+    fun expectCaller(host: EnetHost) {
+        if (encrypted) host.enableDtlsServer(SessionCertificate.serverOptions())
+        linkHosts.expectCaller(host)
+    }
 
     suspend fun dial(address: String, port: Int, timeoutMilliseconds: Long, host: EnetHost = outboundHost()): EnetLink? {
         val peer = host.connect(address, port)
@@ -112,7 +131,7 @@ class Transport(
             return null
         }
         val key = peer.objectID.id
-        outboundHosts[key] = host
+        linkHosts.attach(key, host)
         val deferred = CompletableDeferred<EnetLink>()
         pendingDials[key] = deferred
         TransportLog.log { "dialing $address:$port (peer $key)" }
@@ -120,7 +139,7 @@ class Transport(
         if (link == null) {
             TransportLog.log { "dial to $address:$port timed out" }
             pendingDials.remove(key)
-            outboundHosts.remove(key)?.destroy()
+            linkHosts.release(key)
         }
         return link
     }
@@ -166,8 +185,7 @@ class Transport(
         flush()
         listeningHost?.destroy()
         listeningHost = null
-        outboundHosts.values.forEach(EnetHost::destroy)
-        outboundHosts.clear()
+        linkHosts.destroyAll()
         linksByKey.clear()
         linksByPlayer.clear()
         packetsAwaitingIdentity.clear()
@@ -244,8 +262,24 @@ class Transport(
     private fun forget(link: EnetLink) {
         linksByKey.remove(link.key)
         packetsAwaitingIdentity.remove(link.key)
-        outboundHosts.remove(link.key)?.destroy()
+        linkHosts.release(link.key)
         val player = link.player
         if (player != null && linksByPlayer[player.value] === link) linksByPlayer.remove(player.value)
+    }
+
+    private inner class PunchedHostEvents(private val host: EnetHost) : EnetEventHandler {
+        override fun onConnect(peer: ENetPacketPeer) {
+            linkHosts.attach(peer.objectID.id, host)
+            host.refuseNewConnections(true)
+            this@Transport.onConnect(peer)
+        }
+
+        override fun onDisconnect(peer: ENetPacketPeer): Unit = this@Transport.onDisconnect(peer)
+
+        override fun onReceive(peer: ENetPacketPeer, bytes: ByteArray): Unit = this@Transport.onReceive(peer, bytes)
+    }
+
+    private companion object {
+        const val PUNCHED_HOST_LIFETIME_MILLISECONDS = 30_000L
     }
 }

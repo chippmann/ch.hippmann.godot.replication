@@ -22,6 +22,7 @@ public data class JoinRequest(
     val localAddresses: List<String>,
     /** The listening socket as the rendezvous service saw it, when this join goes through the internet. */
     val publicEndpoints: List<Endpoint> = emptyList(),
+    val certificate: String = "",
 ) : WireMessage {
     override val type: MessageType get() = MessageType.JOIN_REQUEST
 }
@@ -58,6 +59,7 @@ public data class Admitted(
     val password: PasswordVerifier?,
     /** Present when the session is registered with a rendezvous service; every member keeps it alive after a master change. */
     val online: OnlineSessionInfo? = null,
+    val encrypted: Boolean = false,
 ) : WireMessage {
     override val type: MessageType get() = MessageType.ADMITTED
 }

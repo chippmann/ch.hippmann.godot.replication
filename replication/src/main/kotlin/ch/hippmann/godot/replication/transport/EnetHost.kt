@@ -2,6 +2,7 @@ package ch.hippmann.godot.replication.transport
 
 import godot.api.ENetConnection
 import godot.api.ENetPacketPeer
+import godot.api.TLSOptions
 import godot.core.Error
 import godot.core.PackedByteArray
 
@@ -57,6 +58,20 @@ class EnetHost private constructor(
 
     fun refuseNewConnections(refuse: Boolean): Unit = connection.refuseNewConnections(refuse)
 
+    /**
+     * Godot swaps the socket for a DTLS one that keeps the port but drops every raw datagram: the client turns the next
+     * [socketSend] into a handshake and the server ignores sends to unknown peers, so punch before upgrading.
+     */
+    fun enableDtlsClient(client: TLSOptions) {
+        val error = connection.dtlsClientSetup(SessionCertificate.COMMON_NAME, client)
+        check(error == Error.OK) { "Could not enable DTLS on the host at port ${localPort()}: $error" }
+    }
+
+    fun enableDtlsServer(server: TLSOptions) {
+        val error = connection.dtlsServerSetup(server)
+        check(error == Error.OK) { "Could not enable DTLS on the host at port ${localPort()}: $error" }
+    }
+
     fun destroy() {
         if (!active) return
         active = false
@@ -68,18 +83,21 @@ class EnetHost private constructor(
         private val EVENT_DISCONNECT = ENetConnection.EventType.DISCONNECT.value.toInt()
         private val EVENT_RECEIVE = ENetConnection.EventType.RECEIVE.value.toInt()
 
-        fun bind(port: Int, maximumPeers: Int, channels: Int): EnetHost {
+        fun bind(port: Int, maximumPeers: Int, channels: Int, server: TLSOptions? = null): EnetHost {
             val connection = ENetConnection()
             val error = connection.createHostBound("*", port, maximumPeers, channels)
             check(error == Error.OK) { "Could not bind UDP port $port: $error" }
-            return EnetHost(connection, connection.getLocalPort(), channels)
+            return EnetHost(connection, connection.getLocalPort(), channels).also { host -> if (server != null) host.enableDtlsServer(server) }
         }
 
-        fun outbound(channels: Int): EnetHost {
+        fun outbound(channels: Int, client: TLSOptions? = null): EnetHost {
             val connection = ENetConnection()
             val error = connection.createHost(1, channels)
             check(error == Error.OK) { "Could not create an outbound ENet host: $error" }
-            return EnetHost(connection, 0, channels)
+            return EnetHost(connection, 0, channels).also { host -> if (client != null) host.enableDtlsClient(client) }
         }
+
+        /** A host for exactly one link on a port the operating system picks, plain until the link's strategy upgrades it. */
+        fun forOneLink(channels: Int): EnetHost = bind(port = 0, maximumPeers = 1, channels = channels)
     }
 }

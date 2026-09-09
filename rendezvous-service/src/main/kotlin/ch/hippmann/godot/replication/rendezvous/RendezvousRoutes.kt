@@ -1,6 +1,7 @@
 package ch.hippmann.godot.replication.rendezvous
 
 import ch.hippmann.godot.replication.core.rendezvous.Knock
+import ch.hippmann.godot.replication.core.rendezvous.KnockAnswer
 import ch.hippmann.godot.replication.core.rendezvous.Knocks
 import ch.hippmann.godot.replication.core.rendezvous.RelayAllocation
 import ch.hippmann.godot.replication.core.rendezvous.RelayRequest
@@ -72,6 +73,16 @@ fun Application.rendezvousModule(service: RendezvousService) {
             val wait = (call.request.queryParameters["wait"]?.toLongOrNull() ?: 0L).coerceIn(0L, MAXIMUM_WAIT_SECONDS) * 1_000
             val knocks = service.registry.awaitKnocks(call.parameters["code"].orEmpty(), member, wait)
             if (knocks == null) call.respond(HttpStatusCode.NotFound) else call.respond(Knocks(knocks))
+        }
+        post("/sessions/{code}/knocks/{token}/answer") {
+            val accepted = service.registry.answer(call.parameters["code"].orEmpty(), call.receive<KnockAnswer>())
+            call.respond(if (accepted) HttpStatusCode.Accepted else HttpStatusCode.NotFound)
+        }
+        get("/sessions/{code}/knocks/{token}/answer") {
+            val token = call.parameters["token"]?.toLongOrNull() ?: 0L
+            val wait = (call.request.queryParameters["wait"]?.toLongOrNull() ?: 0L).coerceIn(0L, MAXIMUM_WAIT_SECONDS) * 1_000
+            val answer = service.registry.awaitAnswer(call.parameters["code"].orEmpty(), token, wait)
+            if (answer == null) call.respond(HttpStatusCode.NotFound) else call.respond(answer)
         }
         get("/observe/{token}") {
             val token = call.parameters["token"]?.toLongOrNull()

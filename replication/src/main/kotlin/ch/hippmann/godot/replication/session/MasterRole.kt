@@ -71,7 +71,7 @@ internal class MasterRole(
         val (id, allocated) = membership.allocateNext()
         val endpoints = request.publicEndpoints + listOf(Endpoint(link.remoteAddress, request.listenPort)) +
             request.localAddresses.map { address -> Endpoint(address, request.listenPort) }
-        val member = MemberRecord(id, request.profile, endpoints.distinct())
+        val member = MemberRecord(id, request.profile, endpoints.distinct(), certificate = request.certificate)
         val updated = allocated.with(member)
         runtime.membership = updated
         runtime.transport.identify(link, id)
@@ -86,6 +86,7 @@ internal class MasterRole(
                 level = runtime.levelState,
                 password = passwordVerifier,
                 online = runtime.online?.info,
+                encrypted = runtime.transport.encrypted,
             ),
         )
         runtime.transport.broadcastMessage(MemberJoined(updated.epoch, member), except = id)
