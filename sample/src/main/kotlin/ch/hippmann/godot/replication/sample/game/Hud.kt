@@ -66,11 +66,13 @@ class Hud : CanvasLayer() {
         val lobby = Network.lobby.value
         val statistics = Network.statistics.value
         val level = Network.level.value.scenePath?.substringAfterLast('/')?.removeSuffix(".tscn") ?: "no level"
-        sessionLabel.text = "${lobby.configuration.name}, playing $level\nYou are ${Network.localPlayerId.value}, master is ${Network.master.value}"
+        val code = Network.sessionCode?.let { "  code $it" } ?: ""
+        sessionLabel.text = "${lobby.configuration.name}, playing $level$code\nYou are ${Network.localPlayerId.value}, master is ${Network.master.value}"
         playersLabel.text = lobby.players.joinToString("\n") { player ->
             val health = Player.byOwner[player.id.value]?.health?.let { " health $it" } ?: ""
             val roundTrip = statistics.roundTripMilliseconds[player.id]?.let { "  ${it.toInt()} ms" } ?: ""
-            "${player.id.value}  ${player.profile.name}$health$roundTrip"
+            val via = Network.connectionStrategyOf(player.id)?.takeIf { strategy -> strategy != "direct" }?.let { "  via $it" } ?: ""
+            "${player.id.value}  ${player.profile.name}$health$roundTrip$via"
         }
         statisticsLabel.text = "out ${statistics.packetsOut} packets, ${statistics.bytesOut / 1024} KB per second\n" +
             "in ${statistics.packetsIn} packets, ${statistics.bytesIn / 1024} KB per second\n" +

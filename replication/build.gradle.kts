@@ -11,6 +11,7 @@ kotlin {
 dependencies {
     api(project(":replication-core"))
     api(libs.kotlinx.serialization.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
 
     compileOnly(libs.godot.common)

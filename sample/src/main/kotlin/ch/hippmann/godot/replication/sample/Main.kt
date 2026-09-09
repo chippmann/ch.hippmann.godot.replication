@@ -30,7 +30,10 @@ class Main : Node() {
             return
         }
         // Hand play wants tight remote motion: 60 ticks keep the interpolation delay at two ticks, 33 ms.
-        Network.configure { tickRate = INTERACTIVE_TICK_RATE }
+        Network.configure {
+            tickRate = INTERACTIVE_TICK_RATE
+            rendezvousUrl = arguments["rendezvous"] ?: System.getenv("REPLICATION_RENDEZVOUS_URL")?.takeIf { url -> url.isNotBlank() }
+        }
         val lobby = LobbyScreen()
         val session = GameSession()
         addChild(lobby)

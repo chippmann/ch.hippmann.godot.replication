@@ -24,6 +24,7 @@ object Scenarios {
         "simulated_latency" -> SimulatedLatencyScenario()
         "state_latency" -> StateLatencyScenario()
         "replication_load" -> ReplicationLoadScenario()
+        "join_by_code" -> JoinByCodeScenario()
         else -> throw ScenarioFailure("Unknown scenario $name")
     }
 }

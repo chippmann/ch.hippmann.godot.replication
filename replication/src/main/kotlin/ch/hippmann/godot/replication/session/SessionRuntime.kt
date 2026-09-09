@@ -22,7 +22,7 @@ import ch.hippmann.godot.replication.sync.NodeRegistry
 import ch.hippmann.godot.replication.core.wire.MessageType
 import ch.hippmann.godot.replication.core.wire.WireMessage
 import ch.hippmann.godot.replication.transport.ConnectionStrategy
-import ch.hippmann.godot.replication.transport.DirectStrategy
+import ch.hippmann.godot.replication.rendezvous.OnlineSession
 import ch.hippmann.godot.replication.transport.EnetLink
 import ch.hippmann.godot.replication.sync.ReplicationRuntime
 import ch.hippmann.godot.replication.transport.LanDiscovery
@@ -48,7 +48,11 @@ internal class SessionRuntime(
     val discovery = LanDiscovery(configuration.discoveryPort)
     val replication = ReplicationRuntime(this)
     val customMessages = CustomMessages()
-    val strategies: List<ConnectionStrategy> = listOf(DirectStrategy)
+    val strategies: List<ConnectionStrategy> = configuration.strategies()
+    /** Set while the session is registered with a rendezvous service. */
+    var online: OnlineSession? = null
+    /** PEM of this member's certificate once DTLS is on; empty until then. */
+    var certificatePem: String = ""
 
     var masterRole: MasterRole? = null
     var membership: Membership? = null

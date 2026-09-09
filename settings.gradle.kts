@@ -22,4 +22,4 @@ plugins {
 
 rootProject.name = "ch.hippmann.godot.replication"
 
-include("replication-core", "replication", "sample", "end-to-end-tests")
+include("replication-core", "replication", "sample", "end-to-end-tests", "rendezvous-service")

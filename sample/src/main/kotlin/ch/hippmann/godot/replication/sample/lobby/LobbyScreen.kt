@@ -35,9 +35,13 @@ class LobbyScreen : Control() {
     val passwordField = LineEdit().apply { placeholderText = "Password (optional)"; secret = true }
     val addressField = LineEdit().apply { text = "127.0.0.1"; placeholderText = "Address" }
     val portField = LineEdit().apply { text = "7777"; placeholderText = "Port" }
-    val hostButton = Button().apply { text = "Host" }
+    val hostButton = Button().apply { text = "Host on LAN" }
+    val hostOnlineButton = Button().apply { text = "Host online" }
     val joinButton = Button().apply { text = "Join" }
     val discoverButton = Button().apply { text = "Discover on LAN" }
+    val codeField = LineEdit().apply { placeholderText = "Session code"; maxLength = 6 }
+    val joinCodeButton = Button().apply { text = "Join by code" }
+    val codeLabel = Label().apply { modulate = SampleTheme.accent }
     val readyButton = Button().apply { text = "Ready"; toggleMode = true }
     val levelSelector = OptionButton()
     val startButton = Button().apply { text = "Start level" }
@@ -61,6 +65,8 @@ class LobbyScreen : Control() {
         column.addChild(Label().apply { text = "Host a lobby or join one, get everybody ready, then start a level."; modulate = SampleTheme.muted })
         column.addChild(form())
         column.addChild(row(hostButton, joinButton, discoverButton))
+        column.addChild(row(hostOnlineButton, codeField, joinCodeButton))
+        column.addChild(codeLabel)
         column.addChild(Label().apply { text = "Players" })
         column.addChild(players.apply { customMinimumSize = Vector2(0, 104) })
         column.addChild(Label().apply { text = "Sessions on this network" })
@@ -74,8 +80,11 @@ class LobbyScreen : Control() {
     }
 
     private fun connectControls() {
-        hostButton.pressed.connect(lambdaCallable0<Unit> { host() })
+        hostButton.pressed.connect(lambdaCallable0<Unit> { host(online = false) })
+        hostOnlineButton.pressed.connect(lambdaCallable0<Unit> { host(online = true) })
         joinButton.pressed.connect(lambdaCallable0<Unit> { join() })
+        joinCodeButton.pressed.connect(lambdaCallable0<Unit> { joinByCode() })
+        codeField.textSubmitted.connect(lambdaCallable1<Unit, String> { if (Network.state.value == NetworkState.Offline) joinByCode() })
         discoverButton.pressed.connect(lambdaCallable0<Unit> { discover() })
         leaveButton.pressed.connect(lambdaCallable0<Unit> { launch { Network.leave() } })
         startButton.pressed.connect(lambdaCallable0<Unit> { startLevel() })
@@ -86,10 +95,16 @@ class LobbyScreen : Control() {
         }
     }
 
-    private fun host() = launch {
+    private fun host(online: Boolean) = launch {
         runCatching {
-            Network.host(LobbyConfiguration("${profile().name}'s lobby", password = passwordField.text.ifBlank { null }), profile(), portField.text.toInt())
+            Network.host(LobbyConfiguration("${profile().name}'s lobby", password = passwordField.text.ifBlank { null }), profile(), portField.text.toInt(), online)
         }.onFailure { failure -> status.text = "Hosting failed: ${failure.message}" }
+    }
+
+    private fun joinByCode() = launch {
+        runCatching {
+            Network.joinByCode(codeField.text.trim(), profile(), passwordField.text.ifBlank { null })
+        }.onFailure { failure -> status.text = "Join by code failed: ${failure.message}" }
     }
 
     private fun join() = launch {
@@ -122,7 +137,16 @@ class LobbyScreen : Control() {
 
     private fun render(state: NetworkState, lobby: LobbyState) {
         val connected = state == NetworkState.Connected
+        val online = Network.configuration.rendezvousUrl != null
         hostButton.disabled = state != NetworkState.Offline
+        hostOnlineButton.disabled = state != NetworkState.Offline || !online
+        joinCodeButton.disabled = state != NetworkState.Offline || !online
+        codeField.editable = state == NetworkState.Offline && online
+        codeLabel.text = when {
+            !online -> "No rendezvous service configured, online play is off"
+            Network.sessionCode != null -> "Session code ${Network.sessionCode}: others join with it from anywhere"
+            else -> ""
+        }
         joinButton.disabled = state != NetworkState.Offline
         discoverButton.disabled = state != NetworkState.Offline
         leaveButton.disabled = !connected

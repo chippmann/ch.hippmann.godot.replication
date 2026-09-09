@@ -7,6 +7,8 @@ import godot.core.PackedByteArray
 
 class EnetLink(internal val peer: ENetPacketPeer, val outbound: Boolean) : Link {
     val key: Long = peer.objectID.id
+    /** Name of the strategy that made this link; empty for inbound links. */
+    var strategy: String = ""
 
     override var player: PlayerId? = null
 

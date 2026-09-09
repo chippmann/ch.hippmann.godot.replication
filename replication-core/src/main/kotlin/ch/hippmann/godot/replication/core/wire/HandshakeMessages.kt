@@ -9,6 +9,7 @@ import ch.hippmann.godot.replication.core.session.MemberRecord
 import ch.hippmann.godot.replication.core.session.PasswordVerifier
 import ch.hippmann.godot.replication.core.session.PlayerId
 import ch.hippmann.godot.replication.core.session.SessionId
+import ch.hippmann.godot.replication.core.rendezvous.OnlineSessionInfo
 import kotlinx.serialization.Serializable
 
 public const val PROTOCOL_VERSION: Int = 1
@@ -19,6 +20,8 @@ public data class JoinRequest(
     val profile: PlayerProfile,
     val listenPort: Int,
     val localAddresses: List<String>,
+    /** The listening socket as the rendezvous service saw it, when this join goes through the internet. */
+    val publicEndpoints: List<Endpoint> = emptyList(),
 ) : WireMessage {
     override val type: MessageType get() = MessageType.JOIN_REQUEST
 }
@@ -53,6 +56,8 @@ public data class Admitted(
     val lobby: LobbyConfiguration,
     val level: LevelState,
     val password: PasswordVerifier?,
+    /** Present when the session is registered with a rendezvous service; every member keeps it alive after a master change. */
+    val online: OnlineSessionInfo? = null,
 ) : WireMessage {
     override val type: MessageType get() = MessageType.ADMITTED
 }

@@ -69,7 +69,7 @@ internal class MasterRole(
     private fun admit(link: EnetLink, request: JoinRequest) {
         val membership = runtime.membership ?: return
         val (id, allocated) = membership.allocateNext()
-        val endpoints = listOf(Endpoint(link.remoteAddress, request.listenPort)) +
+        val endpoints = request.publicEndpoints + listOf(Endpoint(link.remoteAddress, request.listenPort)) +
             request.localAddresses.map { address -> Endpoint(address, request.listenPort) }
         val member = MemberRecord(id, request.profile, endpoints.distinct())
         val updated = allocated.with(member)
@@ -85,6 +85,7 @@ internal class MasterRole(
                 lobby = runtime.lobbyConfiguration.withoutPassword(),
                 level = runtime.levelState,
                 password = passwordVerifier,
+                online = runtime.online?.info,
             ),
         )
         runtime.transport.broadcastMessage(MemberJoined(updated.epoch, member), except = id)

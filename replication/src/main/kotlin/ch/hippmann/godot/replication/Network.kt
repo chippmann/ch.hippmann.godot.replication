@@ -20,6 +20,7 @@ import ch.hippmann.godot.replication.session.ReplicationManager
 import ch.hippmann.godot.replication.session.SessionRuntime
 import ch.hippmann.godot.replication.session.host
 import ch.hippmann.godot.replication.session.join
+import ch.hippmann.godot.replication.session.joinByCode
 import ch.hippmann.godot.replication.session.leave
 import ch.hippmann.godot.replication.transport.LanDiscovery
 import ch.hippmann.godot.replication.transport.TransportLog
@@ -79,16 +80,37 @@ object Network {
         TransportLog.enabled = configuration.verboseTransportLogging
     }
 
-    suspend fun host(lobby: LobbyConfiguration, profile: PlayerProfile, port: Int = configuration.port): SessionView {
+    /** [online] registers the session with [NetworkConfiguration.rendezvousUrl] so players anywhere can join by [sessionCode]. */
+    suspend fun host(lobby: LobbyConfiguration, profile: PlayerProfile, port: Int = configuration.port, online: Boolean = false): SessionView {
         val runtime = startRuntime()
         try {
-            runtime.host(lobby, profile, port)
+            runtime.host(lobby, profile, port, online)
         } catch (failure: Exception) {
             runtime.manager.endSession()
             throw failure
         }
         return checkNotNull(session.value)
     }
+
+    /** Joins a session registered with the configured rendezvous service, punching through NATs or falling back to its relay. */
+    suspend fun joinByCode(code: String, profile: PlayerProfile, password: String? = null): SessionView {
+        val runtime = startRuntime()
+        try {
+            runtime.joinByCode(code, profile, password)
+        } catch (failure: Exception) {
+            runtime.manager.endSession()
+            throw failure
+        }
+        return checkNotNull(session.value)
+    }
+
+    /** How the link to [player] was made ("direct", "punchthrough", "relay"), null while there is none. */
+    fun connectionStrategyOf(player: PlayerId): String? =
+        ReplicationManager.instance?.runtime?.transport?.linkFor(player)?.strategy?.takeIf { name -> name.isNotEmpty() }
+
+    /** The code others can join with while this session is registered with a rendezvous service. */
+    val sessionCode: String?
+        get() = ReplicationManager.instance?.runtime?.online?.code?.takeIf { code -> code.isNotEmpty() }
 
     suspend fun join(address: String, port: Int, profile: PlayerProfile, password: String? = null): SessionView {
         val runtime = startRuntime()

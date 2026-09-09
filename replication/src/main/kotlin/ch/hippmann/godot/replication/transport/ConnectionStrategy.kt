@@ -1,29 +1,34 @@
 package ch.hippmann.godot.replication.transport
 
 import ch.hippmann.godot.replication.core.session.Endpoint
+import ch.hippmann.godot.replication.core.session.PlayerId
+import ch.hippmann.godot.replication.session.SessionRuntime
 import godot.api.IP
 
+/** Whom to reach: the member's id (for knocks through the service) and every endpoint anybody advertised for it. */
+internal class ConnectionTarget(val member: PlayerId, val endpoints: List<Endpoint>)
+
 /** How a member reaches another member; strategies are tried in configuration order per member. */
-interface ConnectionStrategy {
+internal interface ConnectionStrategy {
     val name: String
 
-    fun advertise(listenPort: Int): List<Endpoint>
-
-    suspend fun connect(candidates: List<Endpoint>, transport: Transport, timeoutMilliseconds: Long): EnetLink?
+    suspend fun connect(target: ConnectionTarget, session: SessionRuntime, timeoutMilliseconds: Long): EnetLink?
 }
 
-object DirectStrategy : ConnectionStrategy {
+internal object DirectStrategy : ConnectionStrategy {
     override val name: String = "direct"
 
-    override fun advertise(listenPort: Int): List<Endpoint> = localAddresses().map { address -> Endpoint(address, listenPort) }
-
-    override suspend fun connect(candidates: List<Endpoint>, transport: Transport, timeoutMilliseconds: Long): EnetLink? {
-        for (candidate in candidates) {
-            val link = transport.dial(candidate.address, candidate.port, timeoutMilliseconds)
+    override suspend fun connect(target: ConnectionTarget, session: SessionRuntime, timeoutMilliseconds: Long): EnetLink? {
+        // Behind the internet, an address that does not answer costs a full timeout; keep that short so punching gets its turn.
+        val perAttempt = if (session.online != null) minOf(timeoutMilliseconds, ONLINE_ATTEMPT_MILLISECONDS) else timeoutMilliseconds
+        for (candidate in target.endpoints) {
+            val link = session.transport.dial(candidate.address, candidate.port, perAttempt)
             if (link != null) return link
         }
         return null
     }
+
+    fun localEndpoints(listenPort: Int): List<Endpoint> = localAddresses().map { address -> Endpoint(address, listenPort) }
 
     /** IPv4 first, loopback last, so members on the same machine still reach each other. */
     fun localAddresses(): List<String> {
@@ -32,4 +37,6 @@ object DirectStrategy : ConnectionStrategy {
         val loopback = ipv4.filter { address -> address.startsWith("127.") }
         return (ipv4 - loopback.toSet()) + loopback
     }
+
+    private const val ONLINE_ATTEMPT_MILLISECONDS = 1_500L
 }

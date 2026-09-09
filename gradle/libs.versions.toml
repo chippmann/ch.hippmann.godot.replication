@@ -12,6 +12,8 @@ kotlinxSerialization = "1.11.0" # https://github.com/Kotlin/kotlinx.serializatio
 junit = "6.1.3" # https://github.com/junit-team/junit-framework/releases
 mavenPublish = "0.37.0" # https://github.com/vanniktech/gradle-maven-publish-plugin/releases
 grgit = "5.3.3" # https://github.com/ajoberstar/grgit/releases
+ktor = "3.5.1" # https://github.com/ktorio/ktor/releases
+logback = "1.5.38" # https://github.com/qos-ch/logback/releases
 
 [libraries]
 godot-common = { module = "com.utopia-rise:common", version.ref = "godotJvm" }
@@ -27,6 +29,13 @@ junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 maven-publish = { module = "com.vanniktech:gradle-maven-publish-plugin", version.ref = "mavenPublish" }
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

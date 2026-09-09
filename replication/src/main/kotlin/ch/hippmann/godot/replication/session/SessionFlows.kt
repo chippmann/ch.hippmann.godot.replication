@@ -29,7 +29,12 @@ import ch.hippmann.godot.replication.core.wire.MessageType
 import ch.hippmann.godot.replication.core.wire.PROTOCOL_VERSION
 import ch.hippmann.godot.replication.core.wire.Redirect
 import ch.hippmann.godot.replication.core.wire.RejectReason
+import ch.hippmann.godot.replication.core.rendezvous.SessionRegistration
+import ch.hippmann.godot.replication.rendezvous.OnlineSession
+import ch.hippmann.godot.replication.rendezvous.RendezvousClient
+import ch.hippmann.godot.replication.transport.ConnectionTarget
 import ch.hippmann.godot.replication.transport.DirectStrategy
+import ch.hippmann.godot.replication.transport.TransportLog
 import ch.hippmann.godot.replication.transport.EnetLink
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -38,22 +43,58 @@ import kotlinx.coroutines.delay
 import godot.global.GD
 import java.security.SecureRandom
 
-internal fun SessionRuntime.host(lobby: LobbyConfiguration, profile: PlayerProfile, port: Int) {
+internal suspend fun SessionRuntime.host(lobby: LobbyConfiguration, profile: PlayerProfile, port: Int, online: Boolean) {
     check(membership == null) { "Already in a session" }
     val host = transport.bind(port, maximumPeers = 2 * lobby.maximumPlayers)
     localPlayerId = PlayerId.FIRST_HOST
     localProfile = profile
     lobbyConfiguration = lobby
     passwordVerifier = lobby.password?.takeIf { password -> password.isNotEmpty() }?.let(PasswordVerifier::forPassword)
-    val record = MemberRecord(localPlayerId, profile, strategies.flatMap { strategy -> strategy.advertise(host.port) })
+    var endpoints = DirectStrategy.localEndpoints(host.port)
+    if (online) {
+        val session = connectOnline(code = null)
+        endpoints = session.refreshListenerEndpoints()
+        val registration = SessionRegistration(
+            lobbyName = lobby.name, maximumPlayers = lobby.maximumPlayers, passwordRequired = lobby.passwordRequired,
+            encrypted = false, masterId = localPlayerId.value, masterCertificate = certificatePem, masterEndpoints = endpoints,
+        )
+        val registered = session.client.register(registration)
+        session.code = registered.code
+        session.secret = registered.hostSecret
+        this.online = session
+    }
+    val record = MemberRecord(localPlayerId, profile, endpoints)
     membership = Membership.hosting(SessionId(SecureRandom().nextLong()), record)
     masterRole = MasterRole(this, passwordVerifier)
     installMeshPeer()
     if (configuration.enableDiscovery) startDiscoveryResponder()
+    this.online?.start()
     publishSession()
     transport.runDeferred()
     Network.setState(NetworkState.Connected)
     replication.start()
+}
+
+/** A client for the configured service plus the UDP endpoint it announces; nothing is registered yet. */
+private suspend fun SessionRuntime.connectOnline(code: String?): OnlineSession {
+    val url = configuration.rendezvousUrl ?: throw IllegalStateException("No rendezvous service is configured")
+    val client = RendezvousClient(url)
+    val information = client.information()
+    return OnlineSession(this, client, code.orEmpty(), secret = null, information.udpAddress, information.udpPort)
+}
+
+internal suspend fun SessionRuntime.joinByCode(code: String, profile: PlayerProfile, password: String?) {
+    check(membership == null) { "Already in a session" }
+    Network.setState(NetworkState.Joining(JoinStep.CONNECTING))
+    val session = try {
+        connectOnline(code.uppercase())
+    } catch (failure: Exception) {
+        abort()
+        throw failure
+    }
+    val published = session.client.find(code) ?: run { abort(); throw JoinFailure.Unreachable("code $code", 0) }
+    online = session
+    join(ConnectionTarget(PlayerId(published.masterId), published.masterEndpoints), profile, password)
 }
 
 internal fun SessionRuntime.startDiscoveryResponder() {
@@ -72,11 +113,16 @@ internal fun SessionRuntime.startDiscoveryResponder() {
 
 internal suspend fun SessionRuntime.join(address: String, port: Int, profile: PlayerProfile, password: String?) {
     check(membership == null) { "Already in a session" }
+    join(ConnectionTarget(PlayerId.NONE, listOf(Endpoint(address, port))), profile, password)
+}
+
+private suspend fun SessionRuntime.join(master: ConnectionTarget, profile: PlayerProfile, password: String?) {
     Network.setState(NetworkState.Joining(JoinStep.CONNECTING))
     try {
         transport.bind(configuration.joinPort, maximumPeers = MAXIMUM_JOINER_PEERS)
         localProfile = profile
-        val entry = transport.dial(address, port, configuration.connectTimeoutMilliseconds) ?: throw JoinFailure.Unreachable(address, port)
+        online?.refreshListenerEndpoints()
+        val entry = reach(master) ?: throw JoinFailure.Unreachable(master.endpoints.firstOrNull()?.address ?: "?", master.endpoints.firstOrNull()?.port ?: 0)
         val (link, challenge) = requestAdmission(entry, profile)
 
         Network.setState(NetworkState.Joining(JoinStep.AUTHENTICATING))
@@ -85,6 +131,7 @@ internal suspend fun SessionRuntime.join(address: String, port: Int, profile: Pl
         val admitted = mailbox.await<Admitted>(link, MessageType.ADMITTED, configuration.joinTimeoutMilliseconds)
         applyAdmission(link, admitted)
 
+        online?.let { session -> session.secret = admitted.online?.secret ?: session.secret; session.start() }
         Network.setState(NetworkState.Joining(JoinStep.MESHING))
         meshWithMembers(admitted)
         replication.start()
@@ -108,7 +155,7 @@ private suspend fun SessionRuntime.requestAdmission(entry: EnetLink, profile: Pl
     var redirects = 0
     var retries = 0
     while (true) {
-        val request = JoinRequest(PROTOCOL_VERSION, profile, transport.listeningHost?.port ?: 0, DirectStrategy.localAddresses())
+        val request = JoinRequest(PROTOCOL_VERSION, profile, transport.listeningHost?.port ?: 0, DirectStrategy.localAddresses(), online?.listenerEndpoints.orEmpty())
         link.sendMessage(request)
         val reply = try {
             mailbox.await(link, setOf(MessageType.CHALLENGE, MessageType.REDIRECT), configuration.joinTimeoutMilliseconds)
@@ -134,8 +181,19 @@ private suspend fun SessionRuntime.requestAdmission(entry: EnetLink, profile: Pl
 }
 
 private suspend fun SessionRuntime.redial(candidates: List<Endpoint>): EnetLink =
-    DirectStrategy.connect(candidates, transport, configuration.connectTimeoutMilliseconds)
+    reach(ConnectionTarget(membership?.master ?: PlayerId.NONE, candidates))
         ?: throw JoinFailure.Unreachable(candidates.firstOrNull()?.address ?: "?", candidates.firstOrNull()?.port ?: 0)
+
+/** Tries every configured strategy in order; the first link wins and remembers which strategy made it. */
+internal suspend fun SessionRuntime.reach(target: ConnectionTarget): EnetLink? {
+    for (strategy in strategies) {
+        val link = strategy.connect(target, this, configuration.timeoutFor(strategy)) ?: continue
+        link.strategy = strategy.name
+        TransportLog.log { "reached ${target.member.value} through ${strategy.name}: $link" }
+        return link
+    }
+    return null
+}
 
 private fun SessionRuntime.applyAdmission(link: EnetLink, admitted: Admitted) {
     localPlayerId = admitted.playerId
@@ -160,22 +218,24 @@ private suspend fun SessionRuntime.meshWithMembers(admitted: Admitted) {
 
 private suspend fun SessionRuntime.connectMember(member: MemberRecord): Boolean {
     val membership = membership ?: return false
-    for (strategy in strategies) {
-        val link = strategy.connect(member.endpoints, transport, configuration.connectTimeoutMilliseconds) ?: continue
-        link.sendMessage(Hello(membership.sessionId, localPlayerId, membership.epoch))
-        mailbox.await<HelloAccepted>(link, MessageType.HELLO_ACCEPTED, configuration.meshTimeoutMilliseconds)
-        transport.identify(link, member.id)
-        meshPeer.announcePeer(member.id)
-        publishSession()
-        return true
-    }
-    return false
+    val link = reach(ConnectionTarget(member.id, member.endpoints)) ?: return false
+    link.sendMessage(Hello(membership.sessionId, localPlayerId, membership.epoch))
+    mailbox.await<HelloAccepted>(link, MessageType.HELLO_ACCEPTED, configuration.meshTimeoutMilliseconds)
+    transport.identify(link, member.id)
+    meshPeer.announcePeer(member.id)
+    publishSession()
+    return true
 }
 
 internal suspend fun SessionRuntime.leave(reason: LeaveReason) {
     if (Network.state.value == NetworkState.Offline) return
     Network.setState(NetworkState.Leaving)
     discovery.stopResponder()
+    online?.let { session ->
+        session.stop()
+        val secret = session.secret
+        if (isMaster && secret != null && (membership?.members?.size ?: 0) <= 1) runCatching { session.client.remove(session.code, secret) }
+    }
     if (membership != null) {
         transport.broadcastMessage(Leave(reason))
         transport.flush()
@@ -192,6 +252,8 @@ internal suspend fun SessionRuntime.leave(reason: LeaveReason) {
 }
 
 internal fun SessionRuntime.abort() {
+    online?.stop()
+    online = null
     mailbox.clear()
     levelService.unload()
     replication.stop()

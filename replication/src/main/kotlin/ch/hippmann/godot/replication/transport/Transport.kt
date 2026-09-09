@@ -103,8 +103,9 @@ class Transport(
         while (deferredActions.isNotEmpty()) deferredActions.removeFirst()()
     }
 
-    suspend fun dial(address: String, port: Int, timeoutMilliseconds: Long): EnetLink? {
-        val host = EnetHost.outbound(channels)
+    fun outboundHost(): EnetHost = EnetHost.outbound(channels)
+
+    suspend fun dial(address: String, port: Int, timeoutMilliseconds: Long, host: EnetHost = outboundHost()): EnetLink? {
         val peer = host.connect(address, port)
         if (peer == null) {
             host.destroy()

@@ -3,6 +3,7 @@ package ch.hippmann.godot.replication.transport
 import godot.api.ENetConnection
 import godot.api.ENetPacketPeer
 import godot.core.Error
+import godot.core.PackedByteArray
 
 interface EnetEventHandler {
     fun onConnect(peer: ENetPacketPeer)
@@ -24,6 +25,14 @@ class EnetHost private constructor(
     private var active = true
 
     fun connect(address: String, port: Int): ENetPacketPeer? = connection.connectToHost(address, port, channels)
+
+    /** A raw datagram from this host's socket; it opens NAT mappings and tells the rendezvous service where we are. */
+    fun socketSend(address: String, port: Int, bytes: ByteArray) {
+        if (active) connection.socketSend(address, port, PackedByteArray(bytes))
+    }
+
+    /** The port the socket actually got, also for an outbound host that only sent something so far. */
+    fun localPort(): Int = if (port != 0) port else connection.getLocalPort()
 
     /** Drains every pending ENet event; called at least once per frame from the main thread. */
     fun service(handler: EnetEventHandler) {

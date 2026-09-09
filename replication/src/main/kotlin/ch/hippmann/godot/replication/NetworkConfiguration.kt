@@ -1,5 +1,9 @@
 package ch.hippmann.godot.replication
 
+import ch.hippmann.godot.replication.transport.ConnectionStrategy
+import ch.hippmann.godot.replication.transport.DirectStrategy
+import ch.hippmann.godot.replication.transport.PunchthroughStrategy
+import ch.hippmann.godot.replication.transport.RelayStrategy
 import godot.api.Node
 
 class NetworkConfiguration {
@@ -18,6 +22,14 @@ class NetworkConfiguration {
     var snapshotTimeoutMilliseconds: Long = 10_000
     var linkTimeoutMilliseconds: Int = 6_000
     var verboseTransportLogging: Boolean = false
+    /** Base URL of a rendezvous service; null keeps sessions on the LAN (discovery and typed addresses only). */
+    var rendezvousUrl: String? = null
+    var punchTimeoutMilliseconds: Long = 4_000
+    var relayTimeoutMilliseconds: Long = 6_000
+    /** Lets punchthrough try private addresses too; only useful to exercise it on one machine. */
+    var punchPrivateAddresses: Boolean = false
+    /** Strategy names in the order to try them; "direct", "punchthrough" and "relay" exist. */
+    var connectionStrategies: List<String> = listOf("direct", "punchthrough", "relay")
     /** Where the library adds the level node named "Level"; every member must use the same path. */
     var levelParentPath: String = "/root"
     /** Runs after a level was added and before this member reports it loaded, for asset warm up and the like. */
@@ -42,5 +54,25 @@ class NetworkConfiguration {
         copy.verboseTransportLogging = verboseTransportLogging
         copy.levelParentPath = levelParentPath
         copy.levelPreparation = levelPreparation
+        copy.rendezvousUrl = rendezvousUrl
+        copy.punchTimeoutMilliseconds = punchTimeoutMilliseconds
+        copy.relayTimeoutMilliseconds = relayTimeoutMilliseconds
+        copy.connectionStrategies = connectionStrategies
+        copy.punchPrivateAddresses = punchPrivateAddresses
+    }
+
+    internal fun strategies(): List<ConnectionStrategy> = connectionStrategies.map { name ->
+        when (name) {
+            DirectStrategy.name -> DirectStrategy
+            PunchthroughStrategy.name -> PunchthroughStrategy
+            RelayStrategy.name -> RelayStrategy
+            else -> throw IllegalArgumentException("Unknown connection strategy '$name'")
+        }
+    }
+
+    internal fun timeoutFor(strategy: ConnectionStrategy): Long = when (strategy) {
+        PunchthroughStrategy -> punchTimeoutMilliseconds
+        RelayStrategy -> relayTimeoutMilliseconds
+        else -> connectTimeoutMilliseconds
     }
 }

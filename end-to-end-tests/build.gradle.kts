@@ -17,7 +17,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
-    dependsOn(":sample:importProject")
+    dependsOn(":sample:importProject", ":rendezvous-service:installDist")
+    systemProperty("rendezvous.launcher", rootProject.file("rendezvous-service/build/install/rendezvous-service/bin/rendezvous-service").absolutePath)
 
     systemProperty("godot.executable", System.getenv("GODOT_EDITOR")?.takeIf { it.isNotBlank() } ?: "godot")
     systemProperty("sample.directory", rootProject.file("sample").absolutePath)
@@ -29,6 +30,7 @@ tasks.test {
     inputs.dir(rootProject.file("sample/jvm")).withPropertyName("sampleJars")
     inputs.dir(rootProject.file("sample/addons/jvm/libs")).withPropertyName("addonLibraries")
     inputs.dir(rootProject.file("sample/scenes")).withPropertyName("sampleScenes")
+    inputs.dir(rootProject.file("rendezvous-service/src/main")).withPropertyName("rendezvousSources")
 
     maxParallelForks = 1
     testLogging.showStandardStreams = true
