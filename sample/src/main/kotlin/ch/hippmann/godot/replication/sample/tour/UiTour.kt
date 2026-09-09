@@ -46,6 +46,8 @@ class UiTour : Node() {
         input.screenshot("1-lobby-form")
         when (role) {
             "host" -> hostTour()
+            "host-online" -> hostOnlineTour()
+            "join-code" -> joinCodeTour()
             "late" -> lateTour()
             "discover" -> discoverTour()
             else -> joinTour()
@@ -151,6 +153,50 @@ class UiTour : Node() {
         input.await("the running level") { session.inLevel }
         input.waitSeconds(1.5)
         input.screenshot("3-joined-after-master-change")
+        input.key(Key.ESCAPE)
+        input.await("leaving") { Network.state.value == NetworkState.Offline }
+    }
+
+    /** Hosts through the rendezvous service, writes the code to `--code-file` for the other tour, then plays as usual. */
+    private suspend fun hostOnlineTour() {
+        input.click(lobby.hostOnlineButton)
+        input.await("hosting online") { Network.state.value == NetworkState.Connected && Network.sessionCode != null }
+        input.waitFrames(10)
+        input.screenshot("2-hosting-online-with-code")
+        arguments["code-file"]?.let { path -> java.io.File(path).writeText(Network.sessionCode.orEmpty()) }
+        input.await("a player who joined by code") { Network.lobby.value.players.size >= 2 }
+        input.click(lobby.readyButton)
+        input.waitFrames(10)
+        input.screenshot("3-lobby-two-players")
+        input.click(lobby.startButton)
+        input.await("the arena") { session.inLevel }
+        input.waitSeconds(1.5)
+        input.screenshot("4-arena")
+        input.walk("move_forward", 1.0)
+        input.waitSeconds(1.0)
+        input.screenshot("5-arena-played")
+        input.key(Key.ESCAPE)
+        input.await("leaving") { Network.state.value == NetworkState.Offline }
+    }
+
+    /** Waits for the code the host wrote, types it by keyboard and joins through the service. */
+    private suspend fun joinCodeTour() {
+        val codeFile = java.io.File(arguments["code-file"] ?: error("--code-file is required"))
+        input.await("the host's code") { codeFile.isFile && codeFile.readText().length == 6 }
+        input.typeInto(lobby.codeField, codeFile.readText().trim())
+        input.screenshot("2-code-typed")
+        input.click(lobby.joinCodeButton)
+        input.await("joining by code") { Network.state.value == NetworkState.Connected }
+        input.waitFrames(10)
+        input.screenshot("3-joined-by-code")
+        input.click(lobby.readyButton)
+        input.await("the arena") { session.inLevel }
+        input.waitSeconds(1.5)
+        input.screenshot("4-arena")
+        input.walk("move_left", 0.8)
+        input.waitSeconds(1.0)
+        input.screenshot("5-arena-played")
+        input.await("the host leaving") { Network.isMaster }
         input.key(Key.ESCAPE)
         input.await("leaving") { Network.state.value == NetworkState.Offline }
     }
