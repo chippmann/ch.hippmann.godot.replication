@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 plugins {
     alias(libs.plugins.godot.jvm)
     alias(libs.plugins.kotlinx.serialization)
+    alias(libs.plugins.ksp)
 }
 
 godot {
@@ -18,6 +19,7 @@ godot {
 
 dependencies {
     implementation(project(":replication"))
+    ksp(project(":replication-processor"))
 }
 
 fun godotExecutable(): String = System.getenv("GODOT_EDITOR")?.takeIf { it.isNotBlank() } ?: "godot"
@@ -66,6 +68,11 @@ val importProject = tasks.register("importProject") {
 
 tasks.matching { task -> task.name == "registrarGenerationIndexExistingRegistrationFiles" }.configureEach {
     mustRunAfter(installAddonLibraries)
+}
+
+// KSP also runs over the registrar source set the Godot plugin generates, which Gradle otherwise flags as an undeclared dependency.
+tasks.matching { task -> task.name == "kspRegistrarGenerationKotlin" }.configureEach {
+    mustRunAfter(tasks.matching { task -> task.name == "registrarGenerationGenerateFiles" })
 }
 
 // The Godot plugin repackages jvm/*.jar through finalizers of `jar`; Godot must not start while they still write.

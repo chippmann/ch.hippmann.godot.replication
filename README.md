@@ -93,11 +93,42 @@ libraries from the binding checkout (`GODOT_JVM_ADDON_LIBRARIES`).
 Godot authority mirrors ownership: a networked node's multiplayer authority is its owner, the level and the tree
 root belong to the master, so `@Rpc(rpcMode = AUTHORITY)` keeps its meaning.
 
+### Plain properties with `@Synced`
+
+Instead of a delegate, a plain `var` of a node class can carry `@Synced`; the `replication-processor` KSP module then
+generates a `<ClassName>SyncedProperties` object next to the class and the library binds it when the node's replica is
+created, polling the property once per tick like `synced(::property)` does:
+
+```kotlin
+plugins { id("com.google.devtools.ksp") version "<ksp version>" }
+dependencies { ksp("ch.hippmann.godot:replication-processor:0.1.0") }
+```
+
+```kotlin
+@Script
+class Door : Node3D() {
+    @Synced var open = false
+    @Synced(reliable = false, continuous = true, interpolate = true) var swing = Vector3.ZERO
+}
+```
+
+Arguments mirror the delegate options: `reliable`, `continuous` with `rate` and `idleAfterTicks`, `interpolate`,
+`half`, `step` and `doublePrecision`. The class must be top level and extend `Node`, the property a non private `var`;
+the processor reports anything else as a compile error. Godot-JVM's Gradle plugin adds a generated registrar source set
+that KSP also runs over, so a project needs one ordering line:
+
+```kotlin
+tasks.matching { it.name == "kspRegistrarGenerationKotlin" }.configureEach {
+    mustRunAfter(tasks.matching { it.name == "registrarGenerationGenerateFiles" })
+}
+```
+
 ## Repository layout
 
 - `replication-core`: pure Kotlin, no Godot dependency: binary codec, wire protocol, membership and election
   logic, delta packets, interpolation, simulation. Unit tested with JUnit.
 - `replication`: the Godot-JVM library (transport over ENet, session flows, replication engine, public API).
+- `replication-processor`: the KSP processor behind `@Synced`, published next to the library.
 - `sample`: a Godot 4.7 project you can play by hand (lobby, two levels, movement, shooting, crates and doors) that also hosts the scripted end-to-end scenarios and a self driving UI tour.
 - `rendezvous-service`: the Ktor service that hands out session codes, observes public endpoints and relays.
 - `end-to-end-tests`: JUnit tests that launch several headless Godot processes on localhost per scenario.

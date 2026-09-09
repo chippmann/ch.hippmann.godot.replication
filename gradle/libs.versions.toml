@@ -14,6 +14,7 @@ mavenPublish = "0.37.0" # https://github.com/vanniktech/gradle-maven-publish-plu
 grgit = "5.3.3" # https://github.com/ajoberstar/grgit/releases
 ktor = "3.5.1" # https://github.com/ktorio/ktor/releases
 logback = "1.5.38" # https://github.com/qos-ch/logback/releases
+ksp = "2.3.9" # https://github.com/google/ksp/releases
 
 [libraries]
 godot-common = { module = "com.utopia-rise:common", version.ref = "godotJvm" }
@@ -37,7 +38,10 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
+ksp-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
+
 [plugins]
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 godot-jvm = { id = "com.utopia-rise.godot-jvm", version.ref = "godotJvm" }

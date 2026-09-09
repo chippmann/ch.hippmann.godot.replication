@@ -3,8 +3,10 @@ package ch.hippmann.godot.replication.session
 import ch.hippmann.godot.replication.diagnostics.NetworkStatistics
 import ch.hippmann.godot.replication.NetworkConfiguration
 import ch.hippmann.godot.replication.sync.FrameClock
+import ch.hippmann.godot.replication.sync.NodeRegistry
 import godot.annotation.Script
 import godot.api.Node
+import godot.core.lambdaCallable1
 
 /**
  * The runtime node the library installs under the scene tree root. It runs before every game node in `_process`
@@ -20,6 +22,7 @@ class ReplicationManager : Node() {
         processPriority = Int.MIN_VALUE / 2
         processPhysicsPriority = Int.MAX_VALUE / 2
         instance = this
+        getTree()?.nodeAdded?.connect(lambdaCallable1<Unit, Node> { node -> NodeRegistry.onNodeAdded(node) })
     }
 
     override fun _process(delta: Double) {

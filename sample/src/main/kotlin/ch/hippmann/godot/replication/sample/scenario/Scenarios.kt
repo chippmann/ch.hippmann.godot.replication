@@ -17,6 +17,7 @@ object Scenarios {
         "owner_leave_policies" -> OwnerLeavePoliciesScenario()
         "level_wait_for_all" -> LevelPolicyScenario(LevelPolicy.WaitForAll(stragglerTimeoutMilliseconds = 20_000))
         "level_start_when_loaded" -> LevelPolicyScenario(LevelPolicy.StartWhenLoaded)
+        "scene_placed_door" -> ScenePlacedDoorScenario()
         "late_join_snapshot" -> LateJoinSnapshotScenario()
         "reconnect_after_drop" -> ReconnectAfterDropScenario()
         "interest_distance" -> InterestDistanceScenario()

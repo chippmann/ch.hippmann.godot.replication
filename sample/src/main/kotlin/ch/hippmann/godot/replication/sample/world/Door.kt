@@ -5,17 +5,20 @@ import ch.hippmann.godot.replication.NetworkConfigured
 import ch.hippmann.godot.replication.NodeNetworkConfiguration
 import ch.hippmann.godot.replication.OwnershipPolicy
 import ch.hippmann.godot.replication.PlayerId
-import ch.hippmann.godot.replication.sync.synced
+import ch.hippmann.godot.replication.sync.Synced
 import godot.annotation.Script
 import godot.api.Label3D
 import godot.api.Node3D
 import godot.core.Vector3
 import godot.extension.api.getNodeAs
 
-/** Taking the door over needs the owner's consent: nobody by default, everyone when [allowedRequesters] is null. */
+/**
+ * Taking the door over needs the owner's consent: nobody by default, everyone when [allowedRequesters] is null. The open
+ * flag is a plain property replicated through the generated `DoorSyncedProperties`.
+ */
 @Script
 class Door : Node3D(), NetworkConfigured {
-    var open by synced(false)
+    @Synced var open = false
     var allowedRequesters: Set<Int>? = emptySet()
 
     private var panel: Node3D? = null

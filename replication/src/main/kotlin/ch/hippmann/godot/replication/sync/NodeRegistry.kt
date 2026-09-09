@@ -24,11 +24,18 @@ object NodeRegistry {
 
     fun byNetworkId(networkId: NetworkId): Replica? = byNetworkId[networkId.value]
 
-    @PublishedApi internal fun replicaFor(node: Node): Replica = replicas.getOrPut(node) {
-        Replica(node).also { replica ->
-            node.treeEntered.connect(lambdaCallable0<Unit> { attach(replica) })
-            node.treeExiting.connect(lambdaCallable0<Unit> { detach(replica) })
-        }
+    @PublishedApi internal fun replicaFor(node: Node): Replica = replicas[node] ?: Replica(node).also { replica ->
+        replicas[node] = replica
+        node.treeEntered.connect(lambdaCallable0<Unit> { attach(replica) })
+        node.treeExiting.connect(lambdaCallable0<Unit> { detach(replica) })
+        // Generated bindings come first so the schema does not depend on which delegate created the replica.
+        for (generated in GeneratedBindings.forNode(node)) generated.bind(node)
+    }
+
+    /** A scene placed node whose only synced properties are generated has nothing that creates its replica; this does. */
+    internal fun onNodeAdded(node: Node) {
+        if (node in replicas || GeneratedBindings.forNode(node).isEmpty()) return
+        attach(replicaFor(node))
     }
 
     internal fun ownedBy(player: PlayerId): List<Replica> = byNetworkId.values.filter { replica -> replica.owner == player }

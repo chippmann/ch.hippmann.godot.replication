@@ -74,4 +74,20 @@ class LevelScenariosTest {
             assertEquals(2, cluster.eventsOf(host, "member_joined").size)
         }
     }
+
+    @Test
+    fun `a scene placed node replicates through its generated Synced binding`() {
+        GodotCluster("scene_placed_door", "scene_placed_door").use { cluster ->
+            val host = cluster.startHost("Mara")
+            val tobias = cluster.startClient("Tobias", "--start-delay-milliseconds=500")
+            cluster.awaitAllPassed()
+
+            for (process in listOf(host, tobias)) {
+                val seen = cluster.assertEvent(process, "door_seen")
+                assertEquals(2, seen.int("owner"), "${process.name} sees the master owning the bay door")
+                assertEquals("false", seen.string("open"))
+                assertEquals(2, cluster.assertEvent(process, "door_open").int("owner"))
+            }
+        }
+    }
 }
